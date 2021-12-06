@@ -1,2 +1,6 @@
 # am100
-Alpha Microsystems AM-100 EMulator based on the work of Mike Noel
+
+Alpha Microsystems AM-100 Emulator
+
+Based on the excellent work of Mike Noel http://www.kicksfortso.com/Am100/
+
