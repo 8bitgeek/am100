@@ -1,0 +1,18 @@
+CPU Diagnostic Exceptions
+
+The VAM 1.0 emulator passes all 1400+ tests in the Alpha Micro "AM-100 Proof of Performance Test" except:
+
+-- CPU 0 - test 37 -- clock interrupt --
+This test usually fails because the test loops waiting for an interrupt to occur and considers it a failure when no interrupt happens. The problem is that on a modern processor VAM is so much faster than a real AM-100 that the test loop completes in much less than 1/60 of a second, so the likely hood of an interrupt occurring is poor. If the test is modified to increase the loop count to a value appropriate to a modern processor the test is successful, but I have not modified the distributed test. Clock interrupt processing is known to work properly despite the unmodified test result.
+
+-- CPU 0 - test 41 -- WFI test --
+Same situation as test 37. WFI is documented by Alpha Micro to not be used in any Alpha Micro code so even if the WFI instruction didn't work it would make no difference. Nevertheless the test can be made to complete successfully by implementing appropriate loop count modifications, indicating that VAM's implementation of WFI is correct.
+
+-- CPU 6 - test 1224 - an FCMP test - floating point compare --
+This is a test to compare infinity to negative infinity. The 'expected' result is N=Z=V=C=1, which is apparently what a real AM-100 does, but since it is not actually correct I choose to let the test fail. The result on VAM is N=Z=V=C=0.
+
+-- CPU 6 - test 1225 - another FCMP test - floating point compare --
+This is a test to compare negative infinity to infinity. The 'expected' result is N=1, which is apparently what a real AM-100 does, but since it is not actually correct I choose to let the test fail. The result on VAM is N=C=1.
+
+-- CPU 6 - test 1315 - an FMUL test - floating point multiply --
+This is a test to ensure the result of 1.0 x 0.1+ = 0.1 instead of 0.1+. That is a characteristic of the floating point implementation on a real AM-100, but since it is not actually correct I choose to let the test fail. The result on VAM is 0.1+.
