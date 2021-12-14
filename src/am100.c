@@ -42,31 +42,31 @@ void am100_init()
 
   /** initialize WD16 CPU callbacks */
 
-  am100_state.wd16_cpu_state->trace_fmt1 = trace_fmt1;
-  am100_state.wd16_cpu_state->trace_fmt2 = trace_fmt2;
-  am100_state.wd16_cpu_state->trace_fmt3 = trace_fmt3;
-  am100_state.wd16_cpu_state->trace_fmt4_svca = trace_fmt4_svca;
-  am100_state.wd16_cpu_state->trace_fmt4_svcb = trace_fmt4_svcb;
-  am100_state.wd16_cpu_state->trace_fmt4_svcc = trace_fmt4_svcc;
-  am100_state.wd16_cpu_state->trace_fmt5 = trace_fmt5;
-  am100_state.wd16_cpu_state->trace_fmt6 = trace_fmt6;
-  am100_state.wd16_cpu_state->trace_fmt7 = trace_fmt7;
-  am100_state.wd16_cpu_state->trace_fmt8 = trace_fmt8;
-  am100_state.wd16_cpu_state->trace_fmt9 = trace_fmt9;
-  am100_state.wd16_cpu_state->trace_fmt9_jsr = trace_fmt9_jsr;
-  am100_state.wd16_cpu_state->trace_fmt9_lea = trace_fmt9_lea;
-  am100_state.wd16_cpu_state->trace_fmt9_sob = trace_fmt9_sob;
-  am100_state.wd16_cpu_state->trace_fmt10 = trace_fmt10;
-  am100_state.wd16_cpu_state->trace_fmt11 = trace_fmt11;
-  am100_state.wd16_cpu_state->trace_Interrupt = trace_Interrupt;
-  am100_state.wd16_cpu_state->trace_fmtInvalid = trace_fmtInvalid;
+  am100_state.wd16_cpu_state->trace_fmt1        = trace_fmt1;
+  am100_state.wd16_cpu_state->trace_fmt2        = trace_fmt2;
+  am100_state.wd16_cpu_state->trace_fmt3        = trace_fmt3;
+  am100_state.wd16_cpu_state->trace_fmt4_svca   = trace_fmt4_svca;
+  am100_state.wd16_cpu_state->trace_fmt4_svcb   = trace_fmt4_svcb;
+  am100_state.wd16_cpu_state->trace_fmt4_svcc   = trace_fmt4_svcc;
+  am100_state.wd16_cpu_state->trace_fmt5        = trace_fmt5;
+  am100_state.wd16_cpu_state->trace_fmt6        = trace_fmt6;
+  am100_state.wd16_cpu_state->trace_fmt7        = trace_fmt7;
+  am100_state.wd16_cpu_state->trace_fmt8        = trace_fmt8;
+  am100_state.wd16_cpu_state->trace_fmt9        = trace_fmt9;
+  am100_state.wd16_cpu_state->trace_fmt9_jsr    = trace_fmt9_jsr;
+  am100_state.wd16_cpu_state->trace_fmt9_lea    = trace_fmt9_lea;
+  am100_state.wd16_cpu_state->trace_fmt9_sob    = trace_fmt9_sob;
+  am100_state.wd16_cpu_state->trace_fmt10       = trace_fmt10;
+  am100_state.wd16_cpu_state->trace_fmt11       = trace_fmt11;
+  am100_state.wd16_cpu_state->trace_Interrupt   = trace_Interrupt;
+  am100_state.wd16_cpu_state->trace_fmtInvalid  = trace_fmtInvalid;
 
   /* memory access callbacks */
 
-  am100_state.wd16_cpu_state->getAMbyte = getAMbyte;
-  am100_state.wd16_cpu_state->putAMbyte = putAMbyte;
-  am100_state.wd16_cpu_state->getAMword = getAMword;
-  am100_state.wd16_cpu_state->putAMword = putAMword;
+  am100_state.wd16_cpu_state->getAMbyte       = getAMbyte;
+  am100_state.wd16_cpu_state->putAMbyte       = putAMbyte;
+  am100_state.wd16_cpu_state->getAMword       = getAMword;
+  am100_state.wd16_cpu_state->putAMword       = putAMword;
   am100_state.wd16_cpu_state->getAMaddrBYmode = getAMaddrBYmode;
   am100_state.wd16_cpu_state->getAMwordBYmode = getAMwordBYmode;
   am100_state.wd16_cpu_state->getAMbyteBYmode = getAMbyteBYmode;
