@@ -800,6 +800,7 @@ int config_start(char *config_file_name) {
   /* NCURSES - flash the copyright, then put up front panel */
   printw("\nVirtual Alpha Micro AM-100, version %s \n"
          "  (c) Copyright 2001-2008, Michael Noel, all rights reserved. \n"
+         "  (c) Copyright 2021, Mike Sharkey, all rights reserved. \n"
          "  see LICENSE for allowed use. \n\n",
          MSTRING(VERSION));
   printw("  http://www.otterway.com/am100/license.html \n\n");
