@@ -25,6 +25,10 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "ps3.h"
+#include "terms.h"
+#include "telnet.h"
+#include "io.h"
 
 /*-------------------------------------------------------------------*/
 /*                                                                   */
@@ -65,8 +69,8 @@ void PS3_Init(unsigned int port, // base port
   thePanel = cptr->CType.PS3.thePanel = new_panel(theWindow);
   set_panel_userptr(thePanel, &(cptr->CType.PS3.panel_data));
   thePanelData = (PANEL_DATA *)panel_userptr(thePanel);
-  thePanelData->PANEL_DATA_NEXT = panels;
-  panels = thePanelData;
+  thePanelData->PANEL_DATA_NEXT = am100_state.panels;
+  am100_state.panels = thePanelData;
   thePanelData->thePanel = thePanel;
   thePanelData->hide = TRUE;
   thePanelData->fnum = fnum;
@@ -83,7 +87,7 @@ void PS3_Init(unsigned int port, // base port
   wbkgd(theWindow, COLOR_PAIR(thePair));
 
   /* if first panel show it, else leave hidden */
-  cp = cards;
+  cp = am100_state.cards;
   numPS3 = 1;
   do {
     if (cp->C_Type == C_Type_PS3)
@@ -106,8 +110,8 @@ void PS3_Init(unsigned int port, // base port
   regAMport(port + 1, &PS3_Port1, (unsigned char *)cptr); // data    reg
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 }
 
 /*-------------------------------------------------------------------*/
@@ -150,22 +154,22 @@ int PS3_poll(unsigned char *sa) {
       if (cptr->CType.PS3.incnt < 35)
         ch = telnet_InChars(thePanel);
     if (ch != ERR) {
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
       cptr->CType.PS3.inbuf[cptr->CType.PS3.inptr2] = ch & 0x7f;
       cptr->CType.PS3.inptr2 = (cptr->CType.PS3.inptr2 + 1) & 0x7f;
       cptr->CType.PS3.incnt++;
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
       didsomething++;
       did3++;
     }
     if (cptr->CType.PS3.outcnt > 0) {
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
       c = cptr->CType.PS3.outbuf[cptr->CType.PS3.outptr2] & 0x7f;
       cptr->CType.PS3.outptr2 = (cptr->CType.PS3.outptr2 + 1) & 0x7f;
       cptr->CType.PS3.outcnt--;
       if (cptr->CType.PS3.outcnt == 0)
         cptr->CType.PS3.outptr = cptr->CType.PS3.outptr2 = 0;
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
       OutChars(thePanel, (char *)&c);
       telnet_OutChars(thePanel, (char *)&c);
       didsomething++;
@@ -218,13 +222,13 @@ void PS3_Port1(unsigned char *chr, int rwflag, unsigned char *sa) {
 
   case 0: /* read */
     if (cptr->CType.PS3.incnt > 0) {
-      pthread_mutex_lock(&bfrlock_t);
+      pthread_mutex_lock(&am100_state.bfrlock_t);
       *chr = cptr->CType.PS3.inbuf[cptr->CType.PS3.inptr] & 0x7f;
       cptr->CType.PS3.inptr = (cptr->CType.PS3.inptr + 1) & 0x7f;
       cptr->CType.PS3.incnt--;
       if (cptr->CType.PS3.incnt == 0)
         cptr->CType.PS3.inptr = cptr->CType.PS3.inptr2 = 0;
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
     } else
       *chr = 0xff;
     break;
@@ -233,11 +237,11 @@ void PS3_Port1(unsigned char *chr, int rwflag, unsigned char *sa) {
     while (cptr->CType.PS3.outcnt > 126) {
       usleep(10000);
     }
-    pthread_mutex_lock(&bfrlock_t);
+    pthread_mutex_lock(&am100_state.bfrlock_t);
     cptr->CType.PS3.outbuf[cptr->CType.PS3.outptr] = *chr & 0x7f;
     cptr->CType.PS3.outptr = (cptr->CType.PS3.outptr + 1) & 0x7f;
     cptr->CType.PS3.outcnt++;
-    pthread_mutex_unlock(&bfrlock_t);
+    pthread_mutex_unlock(&am100_state.bfrlock_t);
     break;
 
   default:

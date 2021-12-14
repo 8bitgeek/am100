@@ -31,6 +31,11 @@
 /*-------------------------------------------------------------------*/
 
 #include "am100.h"
+#include "am320.h"
+#include "am600.h"
+#include "dialog.h"
+#include "terms.h"
+#include "hwassist.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
@@ -160,9 +165,9 @@ void Dialog_Mount(void) {
   vdkdvr_getfiles(dev_fns);
 
   // get the printer names
-  cptr = cards;
+  cptr = am100_state.cards;
   c = 3;
-  do { // get first four am-320 cards...
+  do { // get first four am-320 am100_state.cards...
     if (cptr->C_Type == C_Type_am320) {
       c++;
       strcpy(dev_fns[7], dev_fns[6]);
@@ -183,7 +188,7 @@ void Dialog_Mount(void) {
     }
 
   // get the tape names
-  cptr = cards;
+  cptr = am100_state.cards;
   c = 0;
   do { // get drives on first defined am-600 card...
     if (cptr->C_Type == C_Type_am600) {
@@ -221,7 +226,7 @@ void Dialog_Mount(void) {
   doupdate();
 
   /* make sure dialog nature globally understood */
-  gDialog = TRUE;
+  am100_state.gDialog = TRUE;
 
   /* clear any pending chars */
   do {
@@ -419,7 +424,7 @@ void Dialog_Mount(void) {
   delwin(theWindow);
 
   /* make sure dialog nature globally understood */
-  gDialog = FALSE;
+  am100_state.gDialog = FALSE;
 }
 
 /*-------------------------------------------------------------------*/
@@ -491,7 +496,7 @@ int Dialog_YN(char *msg1, char *msg2) {
   // then get user response
 
   /* make sure dialog nature globally understood */
-  gDialog = TRUE;
+  am100_state.gDialog = TRUE;
 
   /* clear any pending chars */
   do {
@@ -552,7 +557,7 @@ int Dialog_YN(char *msg1, char *msg2) {
   delwin(theWindow);
 
   /* make sure dialog nature globally understood */
-  gDialog = FALSE;
+  am100_state.gDialog = FALSE;
 
   // then return final user response
 
@@ -661,7 +666,7 @@ void Dialog_OK(char *msg) {
   // then get user response
 
   /* make sure dialog nature globally understood */
-  gDialog = TRUE;
+  am100_state.gDialog = TRUE;
 
   /* clear any pending chars */
   do {
@@ -696,7 +701,7 @@ void Dialog_OK(char *msg) {
   delwin(theWindow);
 
   /* make sure dialog nature globally understood */
-  gDialog = FALSE;
+  am100_state.gDialog = FALSE;
 }
 
 /*-------------------------------------------------------------------*/

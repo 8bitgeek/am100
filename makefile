@@ -24,45 +24,49 @@
 #/*                                                                   */
 #/* ----------------------------------------------------------------- */
 
-TARGET	= am100
-CPUDIR  = ../../libemuwd16
-CPUSRC  = $(CPUDIR)/src
-CPULIB  = $(CPUDIR)/libwd16.a
+TARGET	= 	am100
+CPUDIR  = 	libemuwd16
+CPUSRC  = 	$(CPUDIR)/src
+CPULIB  = 	$(CPUDIR)/libwd16.a
 
-VERSION  = 1.1
+VERSION = 	2.0
 
-C        = gcc
+CC  = 		gcc
 
-# CFLAGS   = -O1 -Wall -DVERSION=$(VERSION) -ggdb
+INC = 		-I./ 			\
+	  		-I$(CPUSRC)
 
-
-INC = -I ./ \
-	  -I $(CPUSRC) 
-
-CFLAGS   = -Os -DVERSION=$(VERSION) -Wno-unused-result 			\
-									-Wno-pointer-to-int-cast 	\
-									-Wno-format 				\
-									-Wno-discarded-qualifiers 	\
-									-Wno-int-to-pointer-cast
-
-#	   -march=pentium -malign-double -mwide-multiply
+CFLAGS += 	$(INC) 
+CFLAGS += 	-Os -DVERSION=$(VERSION) 
+CFLAGS += 	-Wno-unused-result 			\
+			-Wno-pointer-to-int-cast 	\
+			-Wno-format 				\
+			-Wno-discarded-qualifiers 	\
+			-Wno-int-to-pointer-cast
 
 LFLAGS	 = -lm -lpthread -lncurses -lpanel -lmenu
 
-EXEFILES = $(TARGET) tapfil filtap tapdir
+OBJS     = 	src/main.o 		\
+			src/config.o 		\
+	   		src/priority.o 		\
+	   		src/hwassist.o 		\
+	   		src/trace.o 		\
+	   		src/clock.o 		\
+	   		src/io.o 			\
+	   		src/am320.o 		\
+	   		src/am600.o 		\
+	   		src/am300.o 		\
+	   		src/ps3.o 			\
+	   		src/terms.o 		\
+	   		src/telnet.o 		\
+	   		src/front-panel.o 	\
+	   		src/dialogs.o 		\
+	   		src/memory.o 		\
+	   		src/rom.o 			\
+	   		src/ram.o
 
-TARFILES = makefile *.c *.h *.ini
-
-OBJS     = main.o config.o \
-	   priority.o hwassist.o trace.o\
-	   clock.o io.o am320.o am600.o\
-	   am300.o ps3.o terms.o telnet.o\
-	   front-panel.o dialogs.o \
-	   memory.o rom.o ram.o
-
-HEADERS  = $(TARGET).h am-ddb.h
-
-all:	   $(EXEFILES)
+HEADERS  =  src/am100.h \
+			src/am-ddb.h
 
 $(TARGET):  $(OBJS) $(CPULIB)
 	$(CC) -o $(TARGET) $(OBJS) $(CPULIB) $(LFLAGS)
@@ -73,17 +77,6 @@ $(OBJS): %.o: %.c $(HEADERS) makefile
 $(CPULIB):
 	(cd $(CPUDIR) && make)
 
-tapfil:  tapfil.c tapfil.h makefile
-	$(CC) -o tapfil tapfil.c -ggdb
-tapdir:  tapdir.c tapfil.h makefile
-	$(CC) -o tapdir tapdir.c -ggdb
-filtap:  filtap.c tapfil.h makefile
-	$(CC) -o filtap filtap.c -ggdb
-
-
 clean:
-	rm -f $(EXEFILES) $(EXEFILES).exe *.o
+	rm -f $(EXEFILES) $(EXEFILES).exe src/*.o
 	(cd $(CPUDIR) && make clean)
-
-tar:
-	tar cvzf $(TARGET)-$(VERSION).tar.gz --exclude \*.o $(TARFILES)

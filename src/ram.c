@@ -25,6 +25,9 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "ram.h"
+#include "io.h"
+#include "memory.h"
 
 /*-------------------------------------------------------------------*/
 /* This module simulates a read-write memory board.  It handles      */
@@ -62,7 +65,7 @@ void ram_Init(unsigned int port, /* port 0 means not bank switched */
     cptr->CType.RAM.base[i] = base[i];
 
   /* get ram to simulate */
-  cptr->CType.RAM.mem = (U8 *)malloc(size * 1024);
+  cptr->CType.RAM.mem = (uint8_t *)malloc(size * 1024);
   if (cptr->CType.RAM.mem == NULL)
     assert("ram.c - failed to obtain ram memory");
 
@@ -76,8 +79,8 @@ void ram_Init(unsigned int port, /* port 0 means not bank switched */
   ram_Port(&p, 1, (unsigned char *)cptr);
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 }
 
 /*-------------------------------------------------------------------*/

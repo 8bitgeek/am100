@@ -25,6 +25,23 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "config.h"
+#include "am600.h"
+#include "am300.h"
+#include "am320.h"
+#include "ps3.h"
+#include "ram.h"
+#include "rom.h"
+#include "memory.h"
+#include "io.h"
+#include "priority.h"
+#include "clock.h"
+#include "telnet.h"
+#include "front-panel.h"
+#include "terms.h"
+#include "hwassist.h"
+#include "dialog.h"
+#include <stdio.h>
 
 #define SEPCHARS " ,="
 #define SEPCHAR2 " ,=\"\'"
@@ -40,6 +57,7 @@ char vdk_dvrName[16] = ""; /* boot dsk drv file over ride */
 
 #define CBUFSIZE 4096
 char cbuf[CBUFSIZE], *cbptr = &cbuf[0];
+
 
 /*-------------------------------------------------------------------*/
 /* Function (private) to process an .ini file am100 command.         */
@@ -66,10 +84,10 @@ int config_am100_cmd() {
       }
     } else if (strstr(next, "svcc") != 0) {
       next = strtok(0, SEPCHAR2); // get next word
-      strncpy((char *)&cpu4_svcctxt, next, 10);
-      if (cpu4_svcctxt[0] == 'l')
+      strncpy((char *)&am100_state.wd16_cpu_state->cpu4_svcctxt, next, 10);
+      if (am100_state.wd16_cpu_state->cpu4_svcctxt[0] == 'l')
         ;
-      else if (cpu4_svcctxt[0] == 'h')
+      else if (am100_state.wd16_cpu_state->cpu4_svcctxt[0] == 'h')
         ;
       else {
         fprintf(stderr, "?am100 svcc value invalid.\r\n");
@@ -213,7 +231,7 @@ int config_chrslp_cmd() {
   }
 
   if (errcnt == 0) {
-    gCHRSLP = uSECS;
+    am100_state.gCHRSLP = uSECS;
   }
 
   return (errcnt);
@@ -741,8 +759,8 @@ int config_start(char *config_file_name) {
   FILE *cfile;
   char fbuf[255], *fptr;
   int bg, bootok, errcnt = 0, fg, i, j, k, l, m, pair, xmax, ymax;
-  U16 JJ, KK;
-  U8 jjj, kkk;
+  uint16_t JJ, KK;
+  uint8_t jjj, kkk;
   long long check_ticks;
   int unhidden = -1;
 
@@ -776,8 +794,8 @@ int config_start(char *config_file_name) {
   noecho();
   nodelay(stdscr, TRUE);
 
-  /* NCURSES - init my list of panels */
-  panels = NULL;
+  /* NCURSES - init my list of am100_state.panels */
+  am100_state.panels = NULL;
 
   /* NCURSES - flash the copyright, then put up front panel */
   printw("\nVirtual Alpha Micro AM-100, version %s \n"
@@ -801,24 +819,24 @@ int config_start(char *config_file_name) {
   // 1/3 default, except one full second for OSX
   // so the ALT sequences can be done manually...
 #if defined(__APPLE_CC__)
-  gCHRSLP = 1000000;
+  am100_state.gCHRSLP = 1000000;
 #else
-  gCHRSLP = 300000;
+  am100_state.gCHRSLP = 300000;
 #endif
 
-  /* init oldPCs table */
-  for (oldPCindex = 0; oldPCindex < 256; oldPCindex++)
-    oldPCs[oldPCindex] = 0;
+  /* init am100_state.wd16_cpu_state->oldPCs table */
+  for (am100_state.wd16_cpu_state->oldPCindex = 0; am100_state.wd16_cpu_state->oldPCindex < 256; am100_state.wd16_cpu_state->oldPCindex++)
+    am100_state.wd16_cpu_state->oldPCs[am100_state.wd16_cpu_state->oldPCindex] = 0;
 
   /* Initialize card list */
-  cards = NULL;
+  am100_state.cards = NULL;
 
   /* Initialize registers */
-  memset(&regs, 0, sizeof(REGS));
-  regs.gpr = (U16 *)&regs.R0;
-  regs.spr = (S16 *)&regs.R0;
-  regs.waiting = 1;            // main (or POST) reset this...
-  strcpy(cpu4_svcctxt, "LOW"); // preset SVCC table low...
+  memset(&am100_state.wd16_cpu_state->regs, 0, sizeof(REGS));
+  am100_state.wd16_cpu_state->regs.gpr = (uint16_t *)&am100_state.wd16_cpu_state->regs.R0;
+  am100_state.wd16_cpu_state->regs.spr = (int16_t *)&am100_state.wd16_cpu_state->regs.R0;
+  am100_state.wd16_cpu_state->regs.waiting = 1;            // main (or POST) reset this...
+  strcpy(am100_state.wd16_cpu_state->cpu4_svcctxt, "LOW"); // preset SVCC table low...
 
   /* Initialize memory structures */
   initAMmemory();
@@ -827,10 +845,10 @@ int config_start(char *config_file_name) {
   initAMports();
 
   /* Initialize locks */
-  pthread_attr_init(&attR_t);
-  pthread_mutex_init(&intlock_t, NULL);
-  pthread_mutex_init(&bfrlock_t, NULL);
-  pthread_mutex_init(&clocklock_t, NULL);
+  pthread_attr_init(&am100_state.attR_t);
+  pthread_mutex_init(&am100_state.wd16_cpu_state->intlock_t, NULL);
+  pthread_mutex_init(&am100_state.bfrlock_t, NULL);
+  pthread_mutex_init(&am100_state.clocklock_t, NULL);
 
   /* register the LED port */
   regAMport(0, &LEDPort, NULL);
@@ -978,11 +996,11 @@ int config_start(char *config_file_name) {
   unhidden = get_panelnumber();
 
   /* start the cpu */
-  pthread_create(&cpu_t, &attR_t, (void *)&cpu_thread, NULL);
+  pthread_create(&am100_state.wd16_cpu_state->cpu_t, &am100_state.attR_t, (void *)&cpu_thread, NULL);
   usleep(100000); // let cpu thread get going...
 
   /* if enabled, run POST (power on self test) */
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
 
     // check for 32k ram at zero...
     fprintf(stderr,
@@ -1002,9 +1020,9 @@ int config_start(char *config_file_name) {
     // check to be sure clock is ticking...
     fprintf(stderr, "POST - clktst - making sure the clock ticks\r\n");
     fflush(stderr);
-    check_ticks = line_clock_ticks;
+    check_ticks = am100_state.line_clock_ticks;
     usleep(100000); // sleep 1/10 second, s.b. lots of ticks!
-    if (line_clock_ticks == check_ticks) {
+    if (am100_state.line_clock_ticks == check_ticks) {
       fprintf(stderr, "POST - clktst --- clock isn't ticking!\r\n");
       return (false);
     }
@@ -1012,20 +1030,20 @@ int config_start(char *config_file_name) {
     // check to be sure cpu runs...
     fprintf(stderr, "POST - cputst - making sure the cpu executes\r\n");
     fflush(stderr);
-    regs.PC = 0;
-    regs.PS.I2 = 0;
-    putAMword((unsigned char *)&regs.PC, 0); // put a NOP at 0
-    putAMword((unsigned char *)&regs.PC, 2); // put a NOP at 2
-    putAMword((unsigned char *)&regs.PC, 4); // put a NOP at 4
-    regs.stepping = 1;
-    regs.waiting = 0; // exec 1 instruction
+    am100_state.wd16_cpu_state->regs.PC = 0;
+    am100_state.wd16_cpu_state->regs.PS.I2 = 0;
+    putAMword((unsigned char *)&am100_state.wd16_cpu_state->regs.PC, 0); // put a NOP at 0
+    putAMword((unsigned char *)&am100_state.wd16_cpu_state->regs.PC, 2); // put a NOP at 2
+    putAMword((unsigned char *)&am100_state.wd16_cpu_state->regs.PC, 4); // put a NOP at 4
+    am100_state.wd16_cpu_state->regs.stepping = 1;
+    am100_state.wd16_cpu_state->regs.waiting = 0; // exec 1 instruction
     usleep(100000);   // sleep 1/10 second, (s.b. time to run 1 instruction!)
-    if (regs.PC != 2) {
+    if (am100_state.wd16_cpu_state->regs.PC != 2) {
       fprintf(stderr, "POST - cputst --- cpu isn't runnng!\r\n");
       return (false);
     }
-    regs.PC = 0;
-    regs.PS.I2 = 0;
+    am100_state.wd16_cpu_state->regs.PC = 0;
+    am100_state.wd16_cpu_state->regs.PS.I2 = 0;
 
     // check to be sure keyboard works...
     if (did_ps3 > 0) {
@@ -1033,11 +1051,11 @@ int config_start(char *config_file_name) {
       fprintf(stderr, "                (i/o to panel, not stderr)\r\n");
       fprintf(stderr, "                please press any key!!! \r\n");
       fflush(stderr);
-      check_ticks = line_clock_ticks + 5;
+      check_ticks = am100_state.line_clock_ticks + 5;
       getAMbyte((unsigned char *)&jjj, 0xFF00 + did_ps3); // get status
-      if (line_clock_ticks > check_ticks) {
+      if (am100_state.line_clock_ticks > check_ticks) {
         fprintf(stderr, "POST - kbdtst --- status check1 blocked(%lld)!\r\n",
-                line_clock_ticks - check_ticks + 5);
+                am100_state.line_clock_ticks - check_ticks + 5);
         return (false);
       }
       switch (jjj) {
@@ -1087,22 +1105,22 @@ int config_start(char *config_file_name) {
       return (false);
     }
   } else {
-    if (gPOST > 0) {
+    if (am100_state.gPOST > 0) {
       fprintf(stderr,
               "POST - using vdk_bootaddr = %04lx instead of vdkdvr_boot\r\n",
               vdk_bootaddr);
       fflush(stderr);
     }
-    regs.PC = vdk_bootaddr;
+    am100_state.wd16_cpu_state->regs.PC = vdk_bootaddr;
   }
 
   /* set initial trace flag if that's what user wanted... */
-  if (gTRACE > 0) {
-    regs.tracing = true;
+  if (am100_state.gTRACE > 0) {
+    am100_state.wd16_cpu_state->regs.tracing = true;
   }
 
   /* if POSTING delay a few seconds to see all results... */
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     sleep(3);
   }
 
@@ -1116,35 +1134,35 @@ int config_start(char *config_file_name) {
 void config_reset() {
   int bootok, ggPOST;
 
-  regs.PC = 0;
-  regs.PS.I2 = 0;
-  regs.waiting = true;
+  am100_state.wd16_cpu_state->regs.PC = 0;
+  am100_state.wd16_cpu_state->regs.PS.I2 = 0;
+  am100_state.wd16_cpu_state->regs.waiting = true;
   memory_reset();
   io_reset();
   telnet_reset();
   vdkdvr_reset();
 
-  ggPOST = gPOST;
-  gPOST = 0; // no post stuff on subsequent boots
+  ggPOST = am100_state.gPOST;
+  am100_state.gPOST = 0; // no post stuff on subsequent boots
 
   if (vdk_bootaddr < 0) {
     bootok = vdkdvr_boot(vdk_drv, vdk_monName, vdk_iniName, vdk_dvrName);
     if (bootok)
-      regs.waiting = false;
+      am100_state.wd16_cpu_state->regs.waiting = false;
     else {
       Dialog_OK("?vdk boot failed! Problem with 'dsk0-container'?");
     }
   } else {
-    regs.PC = vdk_bootaddr;
+    am100_state.wd16_cpu_state->regs.PC = vdk_bootaddr;
   }
 
-  gPOST = ggPOST;
+  am100_state.gPOST = ggPOST;
 }
 
 /*-------------------------------------------------------------------*/
 /* Function to load a file into memory                               */
 /*-------------------------------------------------------------------*/
-void config_fileload(unsigned char *filename, U16 where, U16 *fsize) {
+void config_fileload(unsigned char *filename, uint16_t where, uint16_t *fsize) {
   FILE *fp;
   unsigned char fbuf[5];
   int j;
@@ -1170,7 +1188,7 @@ void config_fileload(unsigned char *filename, U16 where, U16 *fsize) {
 /*-------------------------------------------------------------------*/
 /* Function to save a file from memory                               */
 /*-------------------------------------------------------------------*/
-void config_filesave(unsigned char *filename, U16 where, U16 *fsize) {
+void config_filesave(unsigned char *filename, uint16_t where, uint16_t *fsize) {
   FILE *fp;
   unsigned char fbuf[5];
   int j;
@@ -1193,7 +1211,7 @@ void config_filesave(unsigned char *filename, U16 where, U16 *fsize) {
 /*-------------------------------------------------------------------*/
 /* Function to write a human readable dump of memory                 */
 /*-------------------------------------------------------------------*/
-void config_memdump(U16 where, U16 fsize) {
+void config_memdump(uint16_t where, uint16_t fsize) {
   int i, whereend, fs, bl, buf = 0;
   char cp[4];
   /* RAD50 translation table  */

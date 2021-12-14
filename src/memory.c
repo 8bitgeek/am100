@@ -25,6 +25,10 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "memory.h"
+#include "ram.h"
+#include "rom.h"
+#include "io.h"
 
 /*-------------------------------------------------------------------*/
 /* This module does all memory access and control.  Since the AM100  */
@@ -40,9 +44,9 @@ void initAMmemory() {
 
   for (i = 0; i < 256; i++) /* turn off all memory */
   {
-    am_membase[i] = NULL;
-    am_memowns[i] = 0;
-    am_memflags[i] = 0;
+    am100_state.am_membase[i] = NULL;
+    am100_state.am_memowns[i] = 0;
+    am100_state.am_memflags[i] = 0;
   }
 }
 
@@ -58,7 +62,7 @@ void memory_reset() {
   CARDS *cptr;
   unsigned char pinit, zero = 0;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do { // turn all memory off
     if (cptr->C_Type == C_Type_ram) {
       ram_Port(&zero, 1, (unsigned char *)cptr);
@@ -69,7 +73,7 @@ void memory_reset() {
     cptr = cptr->CARDS_NEXT;
   } while (cptr != NULL);
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do { // turn some memory back on
     if (cptr->C_Type == C_Type_ram) {
       pinit = cptr->CType.RAM.pinit;
@@ -89,16 +93,16 @@ void memory_reset() {
 /*-------------------------------------------------------------------*/
 void swapInAMmemory(unsigned char *cardaddr, int cardport,
                     unsigned char cardflags, /* all same for numpage */
-                    int numpage, U16 amaddr) {
+                    int numpage, uint16_t amaddr) {
   int i, j;
   unsigned char *cb;
 
   for (i = 0; i < numpage; i++) {
     j = i + (amaddr / 256);
     cb = cardaddr + (i * 256);
-    am_membase[j] = cb;
-    am_memowns[j] = cardport;
-    am_memflags[j] = cardflags;
+    am100_state.am_membase[j] = cb;
+    am100_state.am_memowns[j] = cardport;
+    am100_state.am_memflags[j] = cardflags;
   }
 }
 
@@ -109,15 +113,15 @@ void swapInAMmemory(unsigned char *cardaddr, int cardport,
 void swapOutAMmemory(unsigned char *cardaddr, /* not used */
                      int cardport,            /* verify swapout for this card */
                      unsigned char cardflags, /* not used */
-                     int numpage, U16 amaddr) {
+                     int numpage, uint16_t amaddr) {
   int i, j;
 
   for (i = 0; i < numpage; i++) {
     j = i + (amaddr / 256);
-    if (am_memowns[j] == cardport) {
-      am_membase[j] = NULL;
-      am_memowns[j] = 0;
-      am_memflags[j] = 0;
+    if (am100_state.am_memowns[j] == cardport) {
+      am100_state.am_membase[j] = NULL;
+      am100_state.am_memowns[j] = 0;
+      am100_state.am_memflags[j] = 0;
     }
   }
 }
@@ -138,7 +142,7 @@ void getAMbyte(unsigned char *chr, long address) {
     getAMIObyte(chr, PORT);
     break;
   default:
-    cp = am_membase[PAGE];
+    cp = am100_state.am_membase[PAGE];
     if (cp == NULL) /* then no memory there! */
       *chr = 255;
     else /* memory exists */
@@ -184,7 +188,7 @@ void getAMword(unsigned char *chr, long address) {
     *(chr + 1) = *chr;
     return;
   default:
-    cp = am_membase[PAGE];
+    cp = am100_state.am_membase[PAGE];
     if (cp == NULL) /* then no memory there! */
       *chr = 255;
     else /* memory exists */
@@ -210,7 +214,7 @@ void getAMword(unsigned char *chr, long address) {
     getAMIObyte(chr, PORT);
     break;
   default:
-    cp = am_membase[PAGE];
+    cp = am100_state.am_membase[PAGE];
     if (cp == NULL) /* then no memory there! */
       *chr = 255;
     else /* memory exists */
@@ -237,13 +241,13 @@ void putAMbyte(unsigned char *chr, long address) {
     putAMIObyte(chr, PORT);
     break;
   default:
-    cp = am_membase[PAGE];
+    cp = am100_state.am_membase[PAGE];
     if (cp == NULL) /* then no memory there! */
       return;
     else /* memory exists */
     {
       cp += PORT;
-      if (am_memflags[PAGE] && am$mem$flag_writable)
+      if (am100_state.am_memflags[PAGE] && am$mem$flag_writable)
         *cp = *chr; /* move data from memory to caller  */
     }
   }
@@ -282,13 +286,13 @@ void putAMword(unsigned char *chr, long address) {
     putAMIObyte(chr, PORT);
     return;
   default:
-    cp = am_membase[PAGE];
+    cp = am100_state.am_membase[PAGE];
     if (cp == NULL) /* then no memory there! */
       return;
     else /* memory exists */
     {
       cp += PORT;
-      if (am_memflags[PAGE] && am$mem$flag_writable)
+      if (am100_state.am_memflags[PAGE] && am$mem$flag_writable)
         *cp = *chr; /* move data from memory to caller  */
     }
   }
@@ -309,13 +313,13 @@ void putAMword(unsigned char *chr, long address) {
     putAMIObyte(chr, PORT);
     break;
   default:
-    cp = am_membase[PAGE];
+    cp = am100_state.am_membase[PAGE];
     if (cp == NULL) /* then no memory there! */
       return;
     else /* memory exists */
     {
       cp += PORT;
-      if (am_memflags[PAGE] && am$mem$flag_writable)
+      if (am100_state.am_memflags[PAGE] && am$mem$flag_writable)
         *cp = *chr; /* move data from memory to caller  */
     }
   }
@@ -324,43 +328,43 @@ void putAMword(unsigned char *chr, long address) {
 /*-------------------------------------------------------------------*/
 /* given register number, addressing mode, and offset returns word   */
 /*-------------------------------------------------------------------*/
-U16 getAMwordBYmode(int regnum, int mode, int offset) {
-  U16 tmp;
-  U16 tmp2;
+uint16_t getAMwordBYmode(int regnum, int mode, int offset) {
+  uint16_t tmp;
+  uint16_t tmp2;
 
   switch (mode) {
   case 0:
-    return (regs.gpr[regnum]);
+    return (am100_state.wd16_cpu_state->regs.gpr[regnum]);
   case 1:
-    getAMword((unsigned char *)&tmp, regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 2:
-    getAMword((unsigned char *)&tmp, regs.gpr[regnum]);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    getAMword((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     return (tmp);
   case 3:
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     getAMword((unsigned char *)&tmp, tmp2);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     return (tmp);
   case 4:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    getAMword((unsigned char *)&tmp, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMword((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 5:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     getAMword((unsigned char *)&tmp, tmp2);
     return (tmp);
   case 6:
-    getAMword((unsigned char *)&tmp, offset + regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 7:
-    getAMword((unsigned char *)&tmp2, offset + regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     getAMword((unsigned char *)&tmp, tmp2);
     return (tmp);
   default:
@@ -372,40 +376,40 @@ U16 getAMwordBYmode(int regnum, int mode, int offset) {
 /*-------------------------------------------------------------------*/
 /* given register number, addressing mode, and offset return address */
 /*-------------------------------------------------------------------*/
-U16 getAMaddrBYmode(int regnum, int mode, int offset) {
-  U16 tmp;
+uint16_t getAMaddrBYmode(int regnum, int mode, int offset) {
+  uint16_t tmp;
 
   switch (mode) {
   case 0:
     return (0);
   case 1:
-    tmp = regs.gpr[regnum];
+    tmp = am100_state.wd16_cpu_state->regs.gpr[regnum];
     return (tmp);
   case 2:
-    tmp = regs.gpr[regnum];
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    tmp = am100_state.wd16_cpu_state->regs.gpr[regnum];
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     return (tmp);
   case 3:
-    getAMword((unsigned char *)&tmp, regs.gpr[regnum]);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    getAMword((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     return (tmp);
   case 4:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    tmp = regs.gpr[regnum];
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    tmp = am100_state.wd16_cpu_state->regs.gpr[regnum];
     return (tmp);
   case 5:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    getAMword((unsigned char *)&tmp, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMword((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 6:
-    tmp = offset + regs.gpr[regnum];
+    tmp = offset + am100_state.wd16_cpu_state->regs.gpr[regnum];
     return (tmp);
   case 7:
-    getAMword((unsigned char *)&tmp, offset + regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   default:
     assert("memory.c - invalid mode in GetAMaddrBYmode");
@@ -416,43 +420,43 @@ U16 getAMaddrBYmode(int regnum, int mode, int offset) {
 /*-------------------------------------------------------------------*/
 /* given register number, addressing mode, and offset stores word    */
 /*-------------------------------------------------------------------*/
-void putAMwordBYmode(int regnum, int mode, int offset, U16 theword) {
-  U16 tmp2;
+void putAMwordBYmode(int regnum, int mode, int offset, uint16_t theword) {
+  uint16_t tmp2;
 
   switch (mode) {
   case 0:
-    regs.gpr[regnum] = theword;
+    am100_state.wd16_cpu_state->regs.gpr[regnum] = theword;
     break;
   case 1:
-    putAMword((unsigned char *)&theword, regs.gpr[regnum]);
+    putAMword((unsigned char *)&theword, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     break;
   case 2:
-    putAMword((unsigned char *)&theword, regs.gpr[regnum]);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    putAMword((unsigned char *)&theword, am100_state.wd16_cpu_state->regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     break;
   case 3:
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     putAMword((unsigned char *)&theword, tmp2);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     break;
   case 4:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    putAMword((unsigned char *)&theword, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    putAMword((unsigned char *)&theword, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     break;
   case 5:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     putAMword((unsigned char *)&theword, tmp2);
     break;
   case 6:
-    putAMword((unsigned char *)&theword, offset + regs.gpr[regnum]);
+    putAMword((unsigned char *)&theword, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     break;
   case 7:
-    getAMword((unsigned char *)&tmp2, offset + regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     putAMword((unsigned char *)&theword, tmp2);
     break;
   default:
@@ -467,13 +471,13 @@ void undAMwordBYmode(int regnum, int mode) {
   switch (mode) {
   case 2:
   case 3:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
     break;
   case 4:
   case 5:
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     //    default:
   }
 }
@@ -481,45 +485,45 @@ void undAMwordBYmode(int regnum, int mode) {
 /*-------------------------------------------------------------------*/
 /* given register number, addressing mode, and offset returns byte   */
 /*-------------------------------------------------------------------*/
-U8 getAMbyteBYmode(int regnum, int mode, int offset) {
-  U8 tmp;
-  U16 tmp2;
+uint8_t getAMbyteBYmode(int regnum, int mode, int offset) {
+  uint8_t tmp;
+  uint16_t tmp2;
 
   switch (mode) {
   case 0:
-    return ((regs.gpr[regnum] & 0xff));
+    return ((am100_state.wd16_cpu_state->regs.gpr[regnum] & 0xff));
   case 1:
-    getAMbyte((unsigned char *)&tmp, regs.gpr[regnum]);
+    getAMbyte((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 2:
-    getAMbyte((unsigned char *)&tmp, regs.gpr[regnum]);
-    regs.gpr[regnum]++;
+    getAMbyte((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     if (regnum > 5)
-      regs.gpr[regnum]++;
+      am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     return (tmp);
   case 3:
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     getAMbyte((unsigned char *)&tmp, tmp2);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     return (tmp);
   case 4:
-    regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
     if (regnum > 5)
-      regs.gpr[regnum]--;
-    getAMbyte((unsigned char *)&tmp, regs.gpr[regnum]);
+      am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMbyte((unsigned char *)&tmp, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 5:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     getAMbyte((unsigned char *)&tmp, tmp2);
     return (tmp);
   case 6:
-    getAMbyte((unsigned char *)&tmp, offset + regs.gpr[regnum]);
+    getAMbyte((unsigned char *)&tmp, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     return (tmp);
   case 7:
-    getAMword((unsigned char *)&tmp2, offset + regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     getAMbyte((unsigned char *)&tmp, tmp2);
     return (tmp);
   default:
@@ -531,45 +535,45 @@ U8 getAMbyteBYmode(int regnum, int mode, int offset) {
 /*-------------------------------------------------------------------*/
 /* given register number, addressing mode, and offset stores byte    */
 /*-------------------------------------------------------------------*/
-void putAMbyteBYmode(int regnum, int mode, int offset, U8 thebyte) {
-  U16 tmp2;
+void putAMbyteBYmode(int regnum, int mode, int offset, uint8_t thebyte) {
+  uint16_t tmp2;
 
   switch (mode) {
   case 0:
-    regs.gpr[regnum] = (regs.gpr[regnum] & 0xff00) | thebyte;
+    am100_state.wd16_cpu_state->regs.gpr[regnum] = (am100_state.wd16_cpu_state->regs.gpr[regnum] & 0xff00) | thebyte;
     break;
   case 1:
-    putAMbyte((unsigned char *)&thebyte, regs.gpr[regnum]);
+    putAMbyte((unsigned char *)&thebyte, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     break;
   case 2:
-    putAMbyte((unsigned char *)&thebyte, regs.gpr[regnum]);
-    regs.gpr[regnum]++;
+    putAMbyte((unsigned char *)&thebyte, am100_state.wd16_cpu_state->regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     if (regnum > 5)
-      regs.gpr[regnum]++;
+      am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     break;
   case 3:
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     putAMbyte((unsigned char *)&thebyte, tmp2);
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     break;
   case 4:
-    regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
     if (regnum > 5)
-      regs.gpr[regnum]--;
-    putAMbyte((unsigned char *)&thebyte, regs.gpr[regnum]);
+      am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    putAMbyte((unsigned char *)&thebyte, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     break;
   case 5:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
-    getAMword((unsigned char *)&tmp2, regs.gpr[regnum]);
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    getAMword((unsigned char *)&tmp2, am100_state.wd16_cpu_state->regs.gpr[regnum]);
     putAMbyte((unsigned char *)&thebyte, tmp2);
     break;
   case 6:
-    putAMbyte((unsigned char *)&thebyte, offset + regs.gpr[regnum]);
+    putAMbyte((unsigned char *)&thebyte, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     break;
   case 7:
-    getAMword((unsigned char *)&tmp2, offset + regs.gpr[regnum]);
+    getAMword((unsigned char *)&tmp2, offset + am100_state.wd16_cpu_state->regs.gpr[regnum]);
     putAMbyte((unsigned char *)&thebyte, tmp2);
     break;
   default:
@@ -583,22 +587,22 @@ void putAMbyteBYmode(int regnum, int mode, int offset, U8 thebyte) {
 void undAMbyteBYmode(int regnum, int mode) {
   switch (mode) {
   case 2:
-    regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
     if (regnum > 5)
-      regs.gpr[regnum]--;
+      am100_state.wd16_cpu_state->regs.gpr[regnum]--;
     break;
   case 3:
-    regs.gpr[regnum]--;
-    regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]--;
     break;
   case 4:
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     if (regnum > 5)
-      regs.gpr[regnum]++;
+      am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     break;
   case 5:
-    regs.gpr[regnum]++;
-    regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
+    am100_state.wd16_cpu_state->regs.gpr[regnum]++;
     break;
     //    default:
   }

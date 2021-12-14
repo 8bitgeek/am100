@@ -25,6 +25,9 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "am600.h"
+#include "memory.h"
+#include "io.h"
 
 unsigned char bigbuf[65000];
 
@@ -74,8 +77,8 @@ void am600_Init(unsigned int port,  // base port
   //      regAMport(port+6, &am600_Port6, (unsigned char *) cptr);
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 
   /* open the initial tape file */
   am600_mount(port, cptr->CType.AM600.which, filename, filerw);
@@ -88,7 +91,7 @@ void am600_stop() {
   CARDS *cptr;
   int which;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am600) {
       for (which = 0; which < MAXTAPES; which++)
@@ -121,7 +124,7 @@ void am600_getfiles(unsigned int port, char *fn[]) {
   CARDS *cptr;
   int unit;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am600)
       if (cptr->CType.AM600.port == port)
@@ -145,7 +148,7 @@ int am600_mount(unsigned int port, int unit, char *filename, int filerw) {
 
   am600_unmount(port, unit);
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am600)
       if (cptr->CType.AM600.port == port) {
@@ -166,7 +169,7 @@ int am600_mount(unsigned int port, int unit, char *filename, int filerw) {
 void am600_unmount(unsigned int port, int unit) {
   CARDS *cptr;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am600)
       if (cptr->CType.AM600.port == port)
@@ -225,7 +228,7 @@ void am600_Port0(unsigned char *chr, int rwflag, unsigned char *sa) {
 void am600_Port1(unsigned char *chr, int rwflag, unsigned char *sa) {
   CARDS *cptr;
   unsigned char cmd;
-  U16 cnt1, cnt3, ambuf, i, which;
+  uint16_t cnt1, cnt3, ambuf, i, which;
 
   //
   // INPUT - interface status
@@ -272,7 +275,7 @@ void am600_Port1(unsigned char *chr, int rwflag, unsigned char *sa) {
         switch (cmd) {
         case 0:   /*read */
           cnt1--; // read cnt set funny...
-          cnt3 = read_awstape(cptr, which, (BYTE *)&bigbuf);
+          cnt3 = read_awstape(cptr, which, (uint8_t *)&bigbuf);
           for (i = 0; i < cnt1; i++)
             putAMbyte(&bigbuf[i], (ambuf + i));
           cptr->CType.AM600.filecnt[which] = cnt3;
@@ -283,7 +286,7 @@ void am600_Port1(unsigned char *chr, int rwflag, unsigned char *sa) {
           else {
             for (i = 0; i < cnt1; i++)
               getAMbyte(&bigbuf[i], (ambuf + i));
-            cnt3 = write_awstape(cptr, which, (BYTE *)&bigbuf, cnt1);
+            cnt3 = write_awstape(cptr, which, (uint8_t *)&bigbuf, cnt1);
           }
           cptr->CType.AM600.filecnt[which] = cnt3;
           break;
@@ -478,11 +481,11 @@ int readhdr_awstape(CARDS *cptr, int which, long blkpos, AWSTAPE_BLKHDR *buf) {
 /* was read, the return value is zero, and the current file number   */
 /* is incremented.  On error a negative value is returned.       */
 /*-------------------------------------------------------------------*/
-int read_awstape(CARDS *cptr, int which, BYTE *buf) {
+int read_awstape(CARDS *cptr, int which, uint8_t *buf) {
   int rc;                /* Return code               */
   AWSTAPE_BLKHDR awshdr; /* AWSTAPE block header      */
   long blkpos;           /* Offset of block header    */
-  U16 blklen;            /* Data length of block      */
+  uint16_t blklen;            /* Data length of block      */
 
   if (cptr->CType.AM600.file[which] == NULL)
     return -99;
@@ -497,7 +500,7 @@ int read_awstape(CARDS *cptr, int which, BYTE *buf) {
   }
 
   /* Extract the block length from the block header */
-  blklen = ((U16)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
+  blklen = ((uint16_t)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
 
   /* Calculate the offsets of the next and previous blocks */
   cptr->CType.AM600.nxtblkpos[which] = blkpos + sizeof(awshdr) + blklen;
@@ -524,11 +527,11 @@ int read_awstape(CARDS *cptr, int which, BYTE *buf) {
 /*                                                                   */
 /* If successful, return value is zero.                              */
 /*-------------------------------------------------------------------*/
-int write_awstape(CARDS *cptr, int which, BYTE *buf, U16 blklen) {
+int write_awstape(CARDS *cptr, int which, uint8_t *buf, uint16_t blklen) {
   int rc;                /* Return code               */
   AWSTAPE_BLKHDR awshdr; /* AWSTAPE block header      */
   long blkpos;           /* Offset of block header    */
-  U16 prvblkl;           /* Length of previous block  */
+  uint16_t prvblkl;           /* Length of previous block  */
 
   if (cptr->CType.AM600.file[which] == NULL)
     return -99;
@@ -548,7 +551,7 @@ int write_awstape(CARDS *cptr, int which, BYTE *buf, U16 blklen) {
     }
 
     /* Extract the block length from the block header */
-    prvblkl = ((U16)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
+    prvblkl = ((uint16_t)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
 
     /* Recalculate the offset of the next block */
     blkpos = cptr->CType.AM600.prvblkpos[which] + sizeof(awshdr) + prvblkl;
@@ -610,7 +613,7 @@ int write_awsmark(CARDS *cptr, int which) {
   int rc;                /* Return code               */
   AWSTAPE_BLKHDR awshdr; /* AWSTAPE block header      */
   long blkpos;           /* Offset of block header    */
-  U16 prvblkl;           /* Length of previous block  */
+  uint16_t prvblkl;           /* Length of previous block  */
 
   if (cptr->CType.AM600.file[which] == NULL)
     return -99;
@@ -630,7 +633,7 @@ int write_awsmark(CARDS *cptr, int which) {
     }
 
     /* Extract the block length from the block header */
-    prvblkl = ((U16)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
+    prvblkl = ((uint16_t)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
 
     /* Recalculate the offset of the next block */
     blkpos = cptr->CType.AM600.prvblkpos[which] + sizeof(awshdr) + prvblkl;
@@ -687,7 +690,7 @@ int fsb_awstape(CARDS *cptr, int which) {
   int rc;                /* Return code               */
   AWSTAPE_BLKHDR awshdr; /* AWSTAPE block header      */
   long blkpos;           /* Offset of block header    */
-  U16 blklen;            /* Data length of block      */
+  uint16_t blklen;            /* Data length of block      */
 
   if (cptr->CType.AM600.file[which] == NULL)
     return -99;
@@ -702,7 +705,7 @@ int fsb_awstape(CARDS *cptr, int which) {
   }
 
   /* Extract the block length from the block header */
-  blklen = ((U16)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
+  blklen = ((uint16_t)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
 
   /* Calculate the offsets of the next and previous blocks */
   cptr->CType.AM600.nxtblkpos[which] = blkpos + sizeof(awshdr) + blklen;
@@ -726,8 +729,8 @@ int fsb_awstape(CARDS *cptr, int which) {
 int bsb_awstape(CARDS *cptr, int which) {
   int rc;                /* Return code               */
   AWSTAPE_BLKHDR awshdr; /* AWSTAPE block header      */
-  U16 curblkl;           /* Length of current block   */
-  U16 prvblkl;           /* Length of previous block  */
+  uint16_t curblkl;           /* Length of current block   */
+  uint16_t prvblkl;           /* Length of previous block  */
   long blkpos;           /* Offset of block header    */
 
   if (cptr->CType.AM600.file[which] == NULL)
@@ -748,8 +751,8 @@ int bsb_awstape(CARDS *cptr, int which) {
   }
 
   /* Extract the block lengths from the block header */
-  curblkl = ((U16)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
-  prvblkl = ((U16)(awshdr.prvblkl[1]) << 8) | awshdr.prvblkl[0];
+  curblkl = ((uint16_t)(awshdr.curblkl[1]) << 8) | awshdr.curblkl[0];
+  prvblkl = ((uint16_t)(awshdr.prvblkl[1]) << 8) | awshdr.prvblkl[0];
 
   /* Calculate the offset of the previous block */
   cptr->CType.AM600.prvblkpos[which] = blkpos - sizeof(awshdr) - prvblkl;

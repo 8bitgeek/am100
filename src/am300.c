@@ -25,6 +25,11 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "am300.h"
+#include "memory.h"
+#include "io.h"
+#include "terms.h"
+#include "telnet.h"
 
 /*-------------------------------------------------------------------*/
 /* This module presents an am300 hardware interface to the cpu,      */
@@ -78,8 +83,8 @@ void am300_Init(unsigned int port,   // base port
       thePanel = cptr->CType.AM300.thePanel[i] = new_panel(theWindow);
       set_panel_userptr(thePanel, &(cptr->CType.AM300.panel_data[i]));
       thePanelData = (PANEL_DATA *)panel_userptr(thePanel);
-      thePanelData->PANEL_DATA_NEXT = panels;
-      panels = thePanelData;
+      thePanelData->PANEL_DATA_NEXT = am100_state.panels;
+      am100_state.panels = thePanelData;
       thePanelData->thePanel = thePanel;
       thePanelData->hide = TRUE;
       thePanelData->fnum = fn[i];
@@ -96,7 +101,7 @@ void am300_Init(unsigned int port,   // base port
       wbkgd(theWindow, COLOR_PAIR(thePair));
 
       /* if first panel show it, else leave hidden */
-      cp = cards;
+      cp = am100_state.cards;
       numterms = 1;
       do {
         if (cp->C_Type == C_Type_PS3)
@@ -127,8 +132,8 @@ void am300_Init(unsigned int port,   // base port
   regAMport(port + 4, &am300_Port4, (unsigned char *)cptr); // - MUX control reg
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 }
 
 /*-------------------------------------------------------------------*/
@@ -159,18 +164,18 @@ void MaybeDoInterrupt(unsigned char *sa) {
   for (i = 0; i < 6; i++) {
     if (((cptr->CType.AM300.IF[i] & 2) > 0) &
         (cptr->CType.AM300.outcnt[i] < 127)) { // channel open & output rdy
-      pthread_mutex_lock(&intlock_t);
-      regs.whichint[cptr->CType.AM300.intlvl] = 1;
-      regs.intpending = 1;
-      pthread_mutex_unlock(&intlock_t);
+      pthread_mutex_lock(&am100_state.wd16_cpu_state->intlock_t);
+      am100_state.wd16_cpu_state->regs.whichint[cptr->CType.AM300.intlvl] = 1;
+      am100_state.wd16_cpu_state->regs.intpending = 1;
+      pthread_mutex_unlock(&am100_state.wd16_cpu_state->intlock_t);
       return; // quit after first setting it...
     }
     if (((cptr->CType.AM300.IF[i] & 4) > 0) &
         (cptr->CType.AM300.incnt[i] > 0)) { // channel open & input ready
-      pthread_mutex_lock(&intlock_t);
-      regs.whichint[cptr->CType.AM300.intlvl] = 1;
-      regs.intpending = 1;
-      pthread_mutex_unlock(&intlock_t);
+      pthread_mutex_lock(&am100_state.wd16_cpu_state->intlock_t);
+      am100_state.wd16_cpu_state->regs.whichint[cptr->CType.AM300.intlvl] = 1;
+      am100_state.wd16_cpu_state->regs.intpending = 1;
+      pthread_mutex_unlock(&am100_state.wd16_cpu_state->intlock_t);
       return; // don't need to set it more than once...
     }
   }
@@ -205,24 +210,24 @@ int am300_poll(unsigned char *sa) {
           if (cptr->CType.AM300.incnt[i] < 35)
             ch = telnet_InChars(thePanel);
         if (ch != ERR) {
-          pthread_mutex_lock(&bfrlock_t);
+          pthread_mutex_lock(&am100_state.bfrlock_t);
           cptr->CType.AM300.inbuf[cptr->CType.AM300.inptr2[i]][i] = ch & 0x7f;
           cptr->CType.AM300.inptr2[i] =
               (cptr->CType.AM300.inptr2[i] + 1) & 0x7f;
           cptr->CType.AM300.incnt[i]++;
-          pthread_mutex_unlock(&bfrlock_t);
+          pthread_mutex_unlock(&am100_state.bfrlock_t);
           didsomething++;
           did3++;
         }
         if (cptr->CType.AM300.outcnt[i] > 0) {
-          pthread_mutex_lock(&bfrlock_t);
+          pthread_mutex_lock(&am100_state.bfrlock_t);
           c = cptr->CType.AM300.outbuf[cptr->CType.AM300.outptr2[i]][i] & 0x7f;
           cptr->CType.AM300.outptr2[i] =
               (cptr->CType.AM300.outptr2[i] + 1) & 0x7f;
           cptr->CType.AM300.outcnt[i]--;
           if (cptr->CType.AM300.outcnt[i] == 0)
             cptr->CType.AM300.outptr[i] = cptr->CType.AM300.outptr2[i] = 0;
-          pthread_mutex_unlock(&bfrlock_t);
+          pthread_mutex_unlock(&am100_state.bfrlock_t);
           OutChars(thePanel, (char *)&c);
           telnet_OutChars(thePanel, (char *)&c);
           didsomething++;
@@ -416,13 +421,13 @@ void am300_Port3(unsigned char *chr, int rwflag, unsigned char *sa) {
 
   case 0: /* read */
     if (cptr->CType.AM300.incnt[MUX] > 0) {
-      pthread_mutex_lock(&bfrlock_t);
+      pthread_mutex_lock(&am100_state.bfrlock_t);
       *chr = cptr->CType.AM300.inbuf[cptr->CType.AM300.inptr[MUX]][MUX] & 0x7f;
       cptr->CType.AM300.inptr[MUX] = (cptr->CType.AM300.inptr[MUX] + 1) & 0x7f;
       cptr->CType.AM300.incnt[MUX]--;
       if (cptr->CType.AM300.incnt[MUX] == 0)
         cptr->CType.AM300.inptr[MUX] = cptr->CType.AM300.inptr2[MUX] = 0;
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
     } else
       *chr = 0xff;
     break;
@@ -432,13 +437,13 @@ void am300_Port3(unsigned char *chr, int rwflag, unsigned char *sa) {
       while (cptr->CType.AM300.outcnt[MUX] > 126) {
         usleep(10000);
       }
-      pthread_mutex_lock(&bfrlock_t);
+      pthread_mutex_lock(&am100_state.bfrlock_t);
       cptr->CType.AM300.outbuf[cptr->CType.AM300.outptr[MUX]][MUX] =
           *chr & 0x7f;
       cptr->CType.AM300.outptr[MUX] =
           (cptr->CType.AM300.outptr[MUX] + 1) & 0x7f;
       cptr->CType.AM300.outcnt[MUX]++;
-      pthread_mutex_unlock(&bfrlock_t);
+      pthread_mutex_unlock(&am100_state.bfrlock_t);
     }
     cptr->CType.AM300.lastout[3] = *chr;
     break;

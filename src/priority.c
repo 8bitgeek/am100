@@ -24,6 +24,7 @@
 /*                                                                   */
 /* ----------------------------------------------------------------- */
 
+#include "priority.h"
 #ifdef __CYGWIN__
 #include <windows.h>
 #else

@@ -24,8 +24,11 @@
 /*                                                                   */
 /* ----------------------------------------------------------------- */
 
-#include "am-ddb.h"
 #include "am100.h"
+#include "am-ddb.h"
+#include "io.h"
+#include "hwassist.h"
+#include "memory.h"
 
 //
 // these are functions for 'hardware assist' of WD16 & AMOS services
@@ -165,23 +168,23 @@ void vdkdvr(void) {
   // VDKDSK disk driver. 'DMA' to caller's bank is OK because this routine
   // doesn't return until I/O is done.
   //
-  // on entry regs.R0 -> 'surface' and regs.R4 -> ddb.  of course the ddb has
+  // on entry am100_state.wd16_cpu_state->regs.R0 -> 'surface' and am100_state.wd16_cpu_state->regs.R4 -> ddb.  of course the ddb has
   // the buffer address, buffer size, r/w flag, record number, rtn code, etc.
   //
 
   uint8_t c;
-  U8 drv, rw, err;
-  U16 recno, recsz, ambuf, i;
+  uint8_t drv, rw, err;
+  uint16_t recno, recsz, ambuf, i;
   long recnum;
 
-  getAMbyte((uint8_t *)&rw, regs.R4 + DB$FLG);
+  getAMbyte((uint8_t *)&rw, am100_state.wd16_cpu_state->regs.R4 + DB$FLG);
   rw = (rw >> 5) & 1; // 0=read, 1=write
-  getAMword((uint8_t *)&ambuf, regs.R4 + DB$BAD);
-  // AMbyte((uint8_t *)&drv,   regs.R4+DB$DRI);
-  drv = regs.R0 & 3; // drive 0, 1, 2, 3
-  getAMword((uint8_t *)&recno, regs.R4 + DB$RNM);
+  getAMword((uint8_t *)&ambuf, am100_state.wd16_cpu_state->regs.R4 + DB$BAD);
+  // AMbyte((uint8_t *)&drv,   am100_state.wd16_cpu_state->regs.R4+DB$DRI);
+  drv = am100_state.wd16_cpu_state->regs.R0 & 3; // drive 0, 1, 2, 3
+  getAMword((uint8_t *)&recno, am100_state.wd16_cpu_state->regs.R4 + DB$RNM);
   recnum = (recno << 9); // turn recno into byte offset
-  getAMword((uint8_t *)&recsz, regs.R4 + DB$RSZ);
+  getAMword((uint8_t *)&recsz, am100_state.wd16_cpu_state->regs.R4 + DB$RSZ);
 
   if ((recnum + recsz) > vdkmax[drv]) {
     err = 016; // 'illegal block number'
@@ -201,11 +204,11 @@ void vdkdvr(void) {
   } else
     err = 007; // 'device error'
 
-  putAMbyte((uint8_t *)&err, regs.R4 + DB$ERR);
+  putAMbyte((uint8_t *)&err, am100_state.wd16_cpu_state->regs.R4 + DB$ERR);
 
-  if (regs.tracing)
-    if (!regs.utrace) {
-      config_memdump(regs.R4, SIZ$DB);
+  if (am100_state.wd16_cpu_state->regs.tracing)
+    if (!am100_state.wd16_cpu_state->regs.utrace) {
+      config_memdump(am100_state.wd16_cpu_state->regs.R4, SIZ$DB);
       config_memdump(ambuf, recsz);
     }
 }
@@ -220,7 +223,7 @@ int vdkload(int drv, char *name, int ppn, long where_to_put_it)
 {
   long seekto;
   int currentrec, i, tstufd, numlast, rc;
-  U16 where, rnam[3], unam[3];
+  uint16_t where, rnam[3], unam[3];
   uint8_t cbuf[512], *cptr;
   char *ii;
 
@@ -235,7 +238,7 @@ int vdkload(int drv, char *name, int ppn, long where_to_put_it)
 
   // get the UFD record
   /* read MFD sector */
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot - read mfd.\r\n");
     fflush(stderr);
   }
@@ -245,7 +248,7 @@ int vdkload(int drv, char *name, int ppn, long where_to_put_it)
     return (0);
 
   /* find UFD */
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot - find ufd.\r\n");
     fflush(stderr);
   }
@@ -258,7 +261,7 @@ int vdkload(int drv, char *name, int ppn, long where_to_put_it)
     return (0);
 
   // find file in UFD
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot - find %s entry in ufd.\r\n", name);
     fflush(stderr);
   }
@@ -290,7 +293,7 @@ int vdkload(int drv, char *name, int ppn, long where_to_put_it)
   currentrec = *(cptr + 10) + 256 * (*(cptr + 11));
 
   // copy file to memory
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot - copy %s into memory.\r\n", name);
     fflush(stderr);
   }
@@ -323,12 +326,12 @@ int vdkdvr_boot(long drv, char *monName, char *iniName, char *dvrName)
 {
   char *ii;
   int i, j, whatufd;
-  U16 where;
+  uint16_t where;
   long wheretoputit;
-  U16 monsize, dvrsize, membas, zsydsk;
+  uint16_t monsize, dvrsize, membas, zsydsk;
 
   // make sure container opened...
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot - make sure container open.\r\n");
     fflush(stderr);
   }
@@ -336,7 +339,7 @@ int vdkdvr_boot(long drv, char *monName, char *iniName, char *dvrName)
     return (false);
 
   // ************ XXXLOD stuff - load the specified monitor ************
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot --- XXXLOD - load monitor.\r\n");
     fflush(stderr);
   }
@@ -351,7 +354,7 @@ int vdkdvr_boot(long drv, char *monName, char *iniName, char *dvrName)
 
   // *********** MONGEN stuff - load the specified disk driver ***********
   if (strlen(dvrName) > 0) {
-    if (gPOST > 0) {
+    if (am100_state.gPOST > 0) {
       fprintf(stderr, "POST - vdkboot --- MONGEN - load disk driver.\r\n");
       fflush(stderr);
     }
@@ -367,7 +370,7 @@ int vdkdvr_boot(long drv, char *monName, char *iniName, char *dvrName)
 
   // ********* MONTST stuff - stuff in the specified INI file name *********
   if (strlen(iniName) > 0) {
-    if (gPOST > 0) {
+    if (am100_state.gPOST > 0) {
       fprintf(stderr, "POST - vdkboot ---  MONTST - stuff ");
       fprintf(stderr, "'%s' text into monitor.\r\n", iniName);
       fflush(stderr);
@@ -384,11 +387,11 @@ int vdkdvr_boot(long drv, char *monName, char *iniName, char *dvrName)
   }
 
   // set PC to zero and disable interrupts
-  regs.PC = 0;
-  regs.PS.I2 = 0;
+  am100_state.wd16_cpu_state->regs.PC = 0;
+  am100_state.wd16_cpu_state->regs.PS.I2 = 0;
 
   // all done!
-  if (gPOST > 0) {
+  if (am100_state.gPOST > 0) {
     fprintf(stderr, "POST - vdkboot - boot complete.\r\n\r\n");
     fflush(stderr);
   }

@@ -25,6 +25,9 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "terms.h"
+#include "dialog.h"
+#include "front-panel.h"
 
 /*-------------------------------------------------------------------*/
 /* This module contains the console support (ncurses) routines.      */
@@ -38,7 +41,7 @@ int get_panelnumber(void) {
   PANEL_DATA *thePanelData;
   int unhidden = -1;
 
-  thePanelData = panels;
+  thePanelData = am100_state.panels;
   do {
     thePanel = thePanelData->thePanel;
     if (!thePanelData->hide)
@@ -56,7 +59,7 @@ void hide_all_panels(void) {
   PANEL *thePanel;
   PANEL_DATA *thePanelData;
 
-  thePanelData = panels;
+  thePanelData = am100_state.panels;
   do {
     thePanel = thePanelData->thePanel;
     thePanelData->hide = TRUE;
@@ -77,7 +80,7 @@ void show_panel_by_fnum(int fnum) {
 
   hide_all_panels();
 
-  thePanelData = panels;
+  thePanelData = am100_state.panels;
   do {
     thePanel = thePanelData->thePanel;
     theWindow = panel_window(thePanel);
@@ -99,7 +102,7 @@ void refresh_panel(void) {
   PANEL *thePanel;
   PANEL_DATA *thePanelData;
 
-  thePanelData = panels;
+  thePanelData = am100_state.panels;
   do {
     thePanel = thePanelData->thePanel;
     if (thePanelData->hide == FALSE)
@@ -429,7 +432,7 @@ char *getns(char *str, int nn, WINDOW *win) {
   int c, done = FALSE, e, row, col;
 
   /* make sure dialog nature globally understood */
-  gDialog = TRUE; // caller will reset...
+  am100_state.gDialog = TRUE; // caller will reset...
 
   /* assume cursor is located 1 past end of string */
   e = strlen(str);
@@ -508,7 +511,7 @@ int InChars(void) {
     break;
 
   case 0x1b: // start escape sequence
-    ch2 = getxh(gCHRSLP);
+    ch2 = getxh(am100_state.gCHRSLP);
     switch (ch2) {
     case ERR: // <-- native ESC returned here
       break;
@@ -517,7 +520,7 @@ int InChars(void) {
     case 'c': // ALT C was quit
     case 'Q':
     case 'q': // ALT Q was also quit
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
       Dialog_OK("  alt-c, alt-q  to quit is depreciated\n"
                 "  --->  use the front panel instead...\n");
@@ -527,7 +530,7 @@ int InChars(void) {
     case 'F':
     case 'f': // ALT F is front panel
     case '0': // ALT 0 (zero) also
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
       show_panel_by_fnum(0);
       update_panels();
@@ -554,7 +557,7 @@ int InChars(void) {
       altNum++;
     case '1':
       altNum++;
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
       show_panel_by_fnum(altNum);
       update_panels();
@@ -564,7 +567,7 @@ int InChars(void) {
 
     case 'M':
     case 'm': // ALT M is mount/unmount device
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
       Dialog_Mount();
       ch = ERR;
@@ -572,50 +575,50 @@ int InChars(void) {
 
     case 'R':
     case 'r': // ALT R is resume
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
-      if (regs.waiting) {
+      if (am100_state.wd16_cpu_state->regs.waiting) {
         fprintf(stderr, "\n\rYou are exiting single step mode.\n\r");
       }
-      regs.stepping = false;
-      regs.tracing = false;
-      regs.waiting = false;
+      am100_state.wd16_cpu_state->regs.stepping = false;
+      am100_state.wd16_cpu_state->regs.tracing = false;
+      am100_state.wd16_cpu_state->regs.waiting = false;
       ch = ERR;
       break;
 
     case 'S':
     case 's': // ALT S is step
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
-      if (!regs.waiting) {
+      if (!am100_state.wd16_cpu_state->regs.waiting) {
         fprintf(stderr, "\n\rYou have entered single step mode.  ");
         fprintf(stderr, "ALT-S to step.  ");
         fprintf(stderr, "ALT-R to resume..\n\r");
       }
-      regs.stepping = true;
-      regs.tracing = true;
-      regs.waiting = false;
+      am100_state.wd16_cpu_state->regs.stepping = true;
+      am100_state.wd16_cpu_state->regs.tracing = true;
+      am100_state.wd16_cpu_state->regs.waiting = false;
       ch = ERR;
       break;
 
     case 'T':
     case 't': // ALT T is trace
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
-      regs.tracing = ~regs.tracing;
+      am100_state.wd16_cpu_state->regs.tracing = ~am100_state.wd16_cpu_state->regs.tracing;
       ch = ERR;
       break;
 
     case 'Z':
     case 'z': // ALT Z is repaint screen
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
       refresh_panel();
       ch = ERR;
       break;
 
     case '[': // [ opens a longer 3+ char sequence
-      ch3 = getxh(gCHRSLP);
+      ch3 = getxh(am100_state.gCHRSLP);
       switch (ch3) {
       case ERR:
         break;
@@ -635,50 +638,50 @@ int InChars(void) {
 
       case '1': // KEY_HOME
         ch = 0x1e;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
       case '2': // KEY_IC
         ch = 0x06;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
       case '3': // KEY_DC
         ch = 0x04;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
       case '4': // KEY_END
         ch = 0x05;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
       case '5': // KEY_PPAGE
         ch = 0x12;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
       case '6': // KEY_NPAGE
         ch = 0x14;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
 
       case '7': // another possible KEY_HOME
         ch = 0x1e;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
       case '8': // another possible KEY_END
         ch = 0x05;
-        ch4 = getxh(gCHRSLP);
+        ch4 = getxh(am100_state.gCHRSLP);
         if (ch4 != '~')
           ch = ERR;
         break;
@@ -690,7 +693,7 @@ int InChars(void) {
       break;
 
     default: // 2 char (ALT) unhandled
-      if (gDialog)
+      if (am100_state.gDialog)
         break;
       Dialog_ALTHelp();
       ch = ERR;

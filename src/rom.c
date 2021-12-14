@@ -25,6 +25,9 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "rom.h"
+#include "io.h"
+#include "memory.h"
 
 /*-------------------------------------------------------------------*/
 /* This module simulates a read-only memory board.  It handles       */
@@ -63,7 +66,7 @@ void rom_Init(unsigned int port, /* port 0 means not bank switched */
     cptr->CType.ROM.base[i] = base[i];
 
   /* get ram to simulate rom */
-  cptr->CType.ROM.mem = (U8 *)malloc(size * 1024);
+  cptr->CType.ROM.mem = (uint8_t *)malloc(size * 1024);
   if (cptr->CType.ROM.mem == NULL)
     assert("rom.c - failed to obtain rom memory");
 
@@ -84,8 +87,8 @@ void rom_Init(unsigned int port, /* port 0 means not bank switched */
   rom_Port((unsigned char *)&pinit, 1, (unsigned char *)cptr);
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 }
 
 /*-------------------------------------------------------------------*/

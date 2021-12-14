@@ -25,6 +25,9 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "am320.h"
+#include "memory.h"
+#include "io.h"
 
 /*-------------------------------------------------------------------*/
 /*                                                                   */
@@ -60,8 +63,8 @@ void am320_Init(unsigned int port,   // base port
   regAMport(port + 1, &am320_Port1, (unsigned char *)cptr); // 'C', 'G' reg
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 
   am320_mount(port, filename); // mount file if specified
 }
@@ -72,12 +75,12 @@ void am320_Init(unsigned int port,   // base port
 void am320_stop() {
   CARDS *cptr;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am320) {
 
       /* don't let the port code try to write while we try to close! */
-      pthread_mutex_lock(&clocklock_t);
+      pthread_mutex_lock(&am100_state.clocklock_t);
       if (cptr->CType.AM320.file != NULL) {
         if (cptr->CType.AM320.filename[0] != '|')
           fclose(cptr->CType.AM320.file);
@@ -85,7 +88,7 @@ void am320_stop() {
           pclose(cptr->CType.AM320.file);
         cptr->CType.AM320.file = NULL;
       }
-      pthread_mutex_unlock(&clocklock_t);
+      pthread_mutex_unlock(&am100_state.clocklock_t);
     }
     cptr = cptr->CARDS_NEXT;
   } while (cptr != NULL);
@@ -101,7 +104,7 @@ void am320_reset(unsigned char *sa) {
   if (cptr->C_Type == C_Type_am320) {
 
     /* don't let the port code try to write while we try to close! */
-    pthread_mutex_lock(&clocklock_t);
+    pthread_mutex_lock(&am100_state.clocklock_t);
     if (cptr->CType.AM320.file != NULL) {
       if (cptr->CType.AM320.filename[0] != '|')
         fclose(cptr->CType.AM320.file);
@@ -109,7 +112,7 @@ void am320_reset(unsigned char *sa) {
         pclose(cptr->CType.AM320.file);
       cptr->CType.AM320.file = NULL;
     }
-    pthread_mutex_unlock(&clocklock_t);
+    pthread_mutex_unlock(&am100_state.clocklock_t);
   }
 }
 
@@ -127,7 +130,7 @@ int am320_poll(unsigned char *sa) {
   cptr->CType.AM320.tp = tp;
 
   // close printer when it's idle more than a few seconds
-  pthread_mutex_lock(&clocklock_t);
+  pthread_mutex_lock(&am100_state.clocklock_t);
   if (cptr->CType.AM320.file != NULL) {
 
     if (tp != oldtp)
@@ -137,7 +140,7 @@ int am320_poll(unsigned char *sa) {
       cptr->CType.AM320.file = NULL;
     }
   }
-  pthread_mutex_unlock(&clocklock_t);
+  pthread_mutex_unlock(&am100_state.clocklock_t);
 
   return 0;
 }
@@ -148,7 +151,7 @@ int am320_poll(unsigned char *sa) {
 void am320_getfile(unsigned int port, char *filename) {
   CARDS *cptr;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am320)
       if (cptr->CType.AM320.port == port) {
@@ -173,12 +176,12 @@ int am320_mount(unsigned int port, // base port (for id)
   int itWorked = FALSE;
 
   am320_unmount(port);
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am320) {
 
       if (cptr->CType.AM320.port == port) {
-        pthread_mutex_lock(&clocklock_t);
+        pthread_mutex_lock(&am100_state.clocklock_t);
         if (strlen(filename) > 0) {
           if (filename[0] != '|')
             fp = fopen((char *)filename, "a");
@@ -193,7 +196,7 @@ int am320_mount(unsigned int port, // base port (for id)
             itWorked = TRUE;
           }
         }
-        pthread_mutex_unlock(&clocklock_t);
+        pthread_mutex_unlock(&am100_state.clocklock_t);
       }
     }
     cptr = cptr->CARDS_NEXT;
@@ -209,12 +212,12 @@ void am320_unmount(unsigned int port) // base port (for id)
 {
   CARDS *cptr;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am320) {
 
       if (cptr->CType.AM320.port == port) {
-        pthread_mutex_lock(&clocklock_t);
+        pthread_mutex_lock(&am100_state.clocklock_t);
         if (strlen(cptr->CType.AM320.filename) > 0) {
           if (cptr->CType.AM320.file != NULL) {
             if (cptr->CType.AM320.filename[0] != '|')
@@ -225,7 +228,7 @@ void am320_unmount(unsigned int port) // base port (for id)
           cptr->CType.AM320.file = NULL;
           cptr->CType.AM320.filename[0] = '\0';
         }
-        pthread_mutex_unlock(&clocklock_t);
+        pthread_mutex_unlock(&am100_state.clocklock_t);
       }
     }
     cptr = cptr->CARDS_NEXT;
@@ -248,7 +251,7 @@ void am320_Port0(unsigned char *chr, int rwflag, unsigned char *sa) {
 
   case 1: /* write */
     /* don't let the clock task close file while we try to write!   */
-    pthread_mutex_lock(&clocklock_t);
+    pthread_mutex_lock(&am100_state.clocklock_t);
     if (strlen(cptr->CType.AM320.filename) > 0) {
       if (cptr->CType.AM320.file == NULL) {
         if (cptr->CType.AM320.filename[0] != '|')
@@ -259,7 +262,7 @@ void am320_Port0(unsigned char *chr, int rwflag, unsigned char *sa) {
       fputc(*chr, cptr->CType.AM320.file);
       cptr->CType.AM320.cntdown = cptr->CType.AM320.delay;
     }
-    pthread_mutex_unlock(&clocklock_t);
+    pthread_mutex_unlock(&am100_state.clocklock_t);
     break;
 
   default:

@@ -25,6 +25,7 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "telnet.h"
 
 int get_telc(PANEL *panel, int wait);
 
@@ -55,7 +56,7 @@ void telnet_Init2(void) {
   QLEN = 16; // fnum 2-9 times 2
 
   /* make a thread for telnet listener */
-  pthread_create(&telnet_t, &attR_t, (void *)&telnet_thread, NULL);
+  pthread_create(&am100_state.telnet_t, &am100_state.attR_t, (void *)&telnet_thread, NULL);
   usleep(100000); // let the telnet thread get going
 }
 
@@ -65,9 +66,9 @@ void telnet_Init2(void) {
 void sig_pipe(int n) { fprintf(stderr, "Broken pipe signal\n"); }
 
 void doit(int sd) {
-  static BYTE FAILNEG[] = {"Telnet parameter negotiation failed!\r\n"};
-  static BYTE GOODNEWS[] = {"Connected to VAM am-100 emulator!\r\n"};
-  static BYTE BADNEWS[] = {"Sorry, all VAM am-100 emulator port busy!\r\n"};
+  static uint8_t FAILNEG[] = {"Telnet parameter negotiation failed!\r\n"};
+  static uint8_t GOODNEWS[] = {"Connected to VAM am-100 emulator!\r\n"};
+  static uint8_t BADNEWS[] = {"Sorry, all VAM am-100 emulator port busy!\r\n"};
 
   PANEL *thePanel;
   PANEL_DATA *thePanelData;
@@ -82,13 +83,13 @@ void doit(int sd) {
   }
 
   /* find a port for the connection... */
-  thePanelData = panels;
+  thePanelData = am100_state.panels;
   do {
     if ((thePanelData->fnum > 1) && (thePanelData->sd == 0)) {
       send(sd, GOODNEWS, sizeof(GOODNEWS), 0);
       thePanelData->sd = sd;
       thePanelData->teloutbufcnt = 0;
-      thePanelData->telnet_lct = line_clock_ticks + (60 * 10);
+      thePanelData->telnet_lct = am100_state.line_clock_ticks + (60 * 10);
       thePanel = thePanelData->thePanel;
       do {
         theChar = get_telc(thePanel, 0);
@@ -171,10 +172,10 @@ void telnet_thread(void) {
 
     // flush pending output and
     // detect any dropped connections by sending null
-    thePanelData = panels;
+    thePanelData = am100_state.panels;
     do {
       if (thePanelData->sd != 0)
-        if ((line_clock_ticks > thePanelData->telnet_lct) ||
+        if ((am100_state.line_clock_ticks > thePanelData->telnet_lct) ||
             (thePanelData->teloutbufcnt > 0)) {
           thePanel = thePanelData->thePanel;
           telnet_OutChars(thePanel, &c);
@@ -210,7 +211,7 @@ void telnet_stop(void) {
     return;
 
   /* close all telnet connections */
-  thePanelData = panels;
+  thePanelData = am100_state.panels;
   do {
     s = thePanelData->sd;
     thePanelData->sd = 0;
@@ -220,8 +221,8 @@ void telnet_stop(void) {
   } while (thePanelData != NULL);
 
   /* wait for telnet listener to die */
-  pthread_cancel(telnet_t);
-  pthread_join(telnet_t, NULL);
+  pthread_cancel(am100_state.telnet_t);
+  pthread_join(am100_state.telnet_t, NULL);
 }
 
 /*-------------------------------------------------------------------*/
@@ -268,7 +269,7 @@ void telnet_OutChars(PANEL *panel, char *chr) {
       return;
     }
   }
-  thePanelData->telnet_lct = line_clock_ticks + (60 * 10);
+  thePanelData->telnet_lct = am100_state.line_clock_ticks + (60 * 10);
   thePanelData->teloutbufcnt = 0;
   return;
 }
@@ -309,7 +310,7 @@ int get_telc(PANEL *panel, int wait) {
     }
   }
   if (theChar != ERR) {
-    thePanelData->telnet_lct = line_clock_ticks + (60 * 10);
+    thePanelData->telnet_lct = am100_state.line_clock_ticks + (60 * 10);
     return (theChar);
   }
   if (wait > 0) {
@@ -694,7 +695,7 @@ int negotiate(int sd) {
   /* loop until (1) no more replys, and         */
   /*            (2) term neg complete, or       */
   /*            (3) time out occurs.            */
-  lct = line_clock_ticks;
+  lct = am100_state.line_clock_ticks;
   lct += 60 * 5; // 5 seconds to do negotiations...
   do {
     rc = get_packet_ifavail(sd);
@@ -703,7 +704,7 @@ int negotiate(int sd) {
     if (rc == 999)
       return 0;
     usleep(1000);
-  } while (lct > line_clock_ticks);
+  } while (lct > am100_state.line_clock_ticks);
 
   return 0;
 }

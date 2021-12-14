@@ -1,4 +1,4 @@
-/* main.c       (c) Copyright Mike Noel, 2001-2008                   */
+/* cpu-fmt9.h    (c) Copyright Mike Sharkey, 2021                    */
 /* ----------------------------------------------------------------- */
 /*                                                                   */
 /* This software is an emulator for the Alpha-Micro AM-100 computer. */
@@ -23,80 +23,50 @@
 /* legally obtained from an authorized source.                       */
 /*                                                                   */
 /* ----------------------------------------------------------------- */
+#ifndef __AM100_AM600_H__
+#define __AM100_AM600_H__
 
-#include <wd16.h>
 #include "am100.h"
-#include "config.h"
 
-am100_state_t am100_state;
-
-static void am100_init(void);
-static void usage(void);
-
-void am100_init()
+#ifdef __cplusplus
+extern "C"
 {
-  memset(&am100_state,0,sizeof(am100_state_t));
-  am100_state.wd16_cpu_state = &wd16_cpu_state;
-
-  /** @FIXME - initialize wd16 callbacks */
-
-
-}
+#endif
 
 /*-------------------------------------------------------------------*/
-/* This module initializes the am100 emulator.                       */
+/* in am600.c                                                        */
 /*-------------------------------------------------------------------*/
+void am600_Init(unsigned int port, unsigned int intlvl, char *filename,
+                int filerw);
+void am600_stop(void);
+void am600_reset(unsigned char *sa);
+void am600_getfiles(unsigned int port, char *fn[]);
+int am600_mount(unsigned int port, int unit, char *filename, int filerw);
+void am600_unmount(unsigned int port, int unit);
+void am600_Port0(unsigned char *chr, int rwflag, unsigned char *sa);
+void am600_Port1(unsigned char *chr, int rwflag, unsigned char *sa);
+// id am600_Port2(unsigned char *chr, int rwflag, unsigned char *sa);
+void am600_Port3(unsigned char *chr, int rwflag, unsigned char *sa);
+void am600_Port4(unsigned char *chr, int rwflag, unsigned char *sa);
+void am600_Port5(unsigned char *chr, int rwflag, unsigned char *sa);
+// id am600_Port6(unsigned char *chr, int rwflag, unsigned char *sa);
 
-int main(int argc, char *argv[]) {
-  char *inifile = "am100.ini";
-  int c, arg_error = 0;
+int open_awstape(CARDS *cptr, int which);
+int readhdr_awstape(CARDS *cptr, int which, long blkpos, AWSTAPE_BLKHDR *buf);
+int read_awstape(CARDS *cptr, int which, uint8_t *buf);
+int write_awstape(CARDS *cptr, int which, uint8_t *buf, uint16_t blklen);
+int write_awsmark(CARDS *cptr, int which);
+int fsb_awstape(CARDS *cptr, int which);
+int bsb_awstape(CARDS *cptr, int which);
+//  fsf_awstape (CARDS  *cptr, int which); // fsf, bsf not used
+//  bsf_awstape (CARDS  *cptr, int which);
+int rew_awstape(CARDS *cptr, int which);
+int run_awstape(CARDS *cptr, int which); // aka "close_awstape"
+int erg_awstape(CARDS *cptr, int which);
 
-  am100_init();
 
-  /* get command line argument(s) (if any) */
-  while ((c = getopt(argc, argv, "f:PT")) != EOF) {
-    switch (c) {
-    case 'f':
-      inifile = optarg;
-      break;
-    case 'P':
-      am100_state.gPOST++;
-      break;
-    case 'T':
-      am100_state.gTRACE++;
-      break;
-    default:
-      arg_error++;
-    }
-  }
-  if (optind < argc)
-    arg_error++;
-  if (arg_error > 0)
-    usage();
-
-  if (!config_start(inifile)) {
-    // if (panels != NULL) hide_all_panels();
-    fprintf(stderr, "configuration failure!\n\r");
-    sleep(4);
-    endwin();
-    exit(99);
-  }
-
-  am100_state.wd16_cpu_state->regs.waiting = 0;           // start cpu running
-  pthread_join(am100_state.wd16_cpu_state->cpu_t, NULL);   // wait for it to die
-
-  config_stop();
-
-  return (0);
+#ifdef __cplusplus
 }
+#endif
 
-static void usage(void ) 
-{
-  fprintf(stderr, "Syntax:\tam100 {-P -T -f inifile}\n"
-                  " where:\t-f inifile = name of initialization file\n"
-                  " where:\t-T = startup with tracing on\n"
-                  " where:\t-P = detailed POST (power on self test)\n");
-  sleep(10);
-  exit(99);
-}
-
+#endif

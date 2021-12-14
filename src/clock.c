@@ -25,6 +25,14 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "ps3.h"
+#include "am300.h"
+#include "am320.h"
+#include "priority.h"
+#include "clock.h"
+#include "memory.h"
+#include "front-panel.h"
+#include "terms.h"
 
 int BG_check_terms(void);
 int BG_check_others(void);
@@ -51,15 +59,15 @@ void clock_Init(unsigned int clkfrq) {
   cptr->CType.clock.clkfrq = clkfrq;
 
   /* everything worked so put card on card chain */
-  cptr->CARDS_NEXT = cards;
-  cards = cptr;
+  cptr->CARDS_NEXT = am100_state.cards;
+  am100_state.cards = cptr;
 
   /* make a thread for the line clock interrupts */
-  pthread_create(&lineclock_t, &attR_t, (void *)&clock_thread, NULL);
+  pthread_create(&am100_state.lineclock_t, &am100_state.attR_t, (void *)&clock_thread, NULL);
   usleep(100000); // let the clock thread get going
 
   /* make a separate thread to handle the other periodic tasks */
-  pthread_create(&background_t, &attR_t, (void *)&background_thread, NULL);
+  pthread_create(&am100_state.background_t, &am100_state.attR_t, (void *)&background_thread, NULL);
   usleep(100000); // let the background thread get going
 }
 
@@ -71,7 +79,7 @@ void clock_stop(void) {
   CARDS *cptr;
 
   /* find the clock on the card chain */
-  cptr = cards;
+  cptr = am100_state.cards;
   while (cptr->C_Type != C_Type_clock) {
     cptr = cptr->CARDS_NEXT;
     if (cptr == NULL) {
@@ -81,11 +89,11 @@ void clock_stop(void) {
   }
 
   /* set ticks < 0 to shutdown the clock thread(s) */
-  line_clock_ticks = -1;
+  am100_state.line_clock_ticks = -1;
 
   /* wait for clock tasks to die */
-  pthread_join(lineclock_t, NULL);
-  pthread_join(background_t, NULL);
+  pthread_join(am100_state.lineclock_t, NULL);
+  pthread_join(am100_state.background_t, NULL);
 }
 
 /*-------------------------------------------------------------------*/
@@ -96,7 +104,7 @@ void clock_reset(void) {
   CARDS *cptr;
 
   /* find the clock on the card chain */
-  cptr = cards;
+  cptr = am100_state.cards;
   while (cptr->C_Type != C_Type_clock) {
     cptr = cptr->CARDS_NEXT;
     if (cptr == NULL) {
@@ -104,7 +112,7 @@ void clock_reset(void) {
       exit(0);
     }
   }
-  regs.BOOTing = 1;
+  am100_state.wd16_cpu_state->regs.BOOTing = 1;
 }
 
 /*-------------------------------------------------------------------*/
@@ -118,13 +126,13 @@ void clock_thread(void) {
   struct timeval tv;
   time_t tnow;
   struct tm *m;
-  U16 tp;
-  U8 mdy;
+  uint16_t tp;
+  uint8_t mdy;
 
   set_pri_high();
 
   /* find the clock on the card chain */
-  cptr = cards;
+  cptr = am100_state.cards;
   while (cptr->C_Type != C_Type_clock) {
     cptr = cptr->CARDS_NEXT;
     if (cptr == NULL) {
@@ -135,23 +143,23 @@ void clock_thread(void) {
   clkfrq = cptr->CType.clock.clkfrq;
 
   /* compute the usleep time from the clkfrq */
-  wait_time = line_clock_ticks = (1000000 / clkfrq);
+  wait_time = am100_state.line_clock_ticks = (1000000 / clkfrq);
 
   /* post non-vectored interrupt and sleep a clkfrq of a second */
-  while (line_clock_ticks > 0) {
-    if (regs.BOOTing == 1) {
+  while (am100_state.line_clock_ticks > 0) {
+    if (am100_state.wd16_cpu_state->regs.BOOTing == 1) {
       lcladj = 0;
-      regs.BOOTing = 0;
+      am100_state.wd16_cpu_state->regs.BOOTing = 0;
     }
     gettimeofday(&tv, (struct timezone *)0);
-    line_clock_ticks = tv.tv_sec - lcladj;
-    line_clock_ticks *= 1000;
-    if (line_clock_ticks > 86400000) {
+    am100_state.line_clock_ticks = tv.tv_sec - lcladj;
+    am100_state.line_clock_ticks *= 1000;
+    if (am100_state.line_clock_ticks > 86400000) {
       tnow = time((time_t *)0);
       m = localtime(&tnow);
       lcladj = tv.tv_sec - (m->tm_hour * 3600) - (m->tm_min * 60) - (m->tm_sec);
-      line_clock_ticks = tv.tv_sec - lcladj;
-      line_clock_ticks *= 1000;
+      am100_state.line_clock_ticks = tv.tv_sec - lcladj;
+      am100_state.line_clock_ticks *= 1000;
       mdy = m->tm_mon + 1;
       putAMbyte((unsigned char *)&mdy, 0x56);
       mdy = m->tm_mday;
@@ -161,19 +169,19 @@ void clock_thread(void) {
       putAMbyte((unsigned char *)&mdy, 0x58);
       // fprintf(stderr,"clock rollover\n");
     }
-    line_clock_ticks += tv.tv_usec / 1000;
-    line_clock_ticks *= clkfrq;
-    line_clock_ticks /= 1000;
-    line_clock_ticks++; // incase it's exactly midnight...
+    am100_state.line_clock_ticks += tv.tv_usec / 1000;
+    am100_state.line_clock_ticks *= clkfrq;
+    am100_state.line_clock_ticks /= 1000;
+    am100_state.line_clock_ticks++; // incase it's exactly midnight...
 
-    tp = line_clock_ticks & 0x0ffff;
+    tp = am100_state.line_clock_ticks & 0x0ffff;
     putAMword((unsigned char *)&tp, 0x52); // time
-    tp = (line_clock_ticks >> 16) & 0x0ffff;
+    tp = (am100_state.line_clock_ticks >> 16) & 0x0ffff;
     putAMword((unsigned char *)&tp, 0x54); // time+2
-    pthread_mutex_lock(&intlock_t);
-    regs.whichint[0] = 1;
-    regs.intpending = 1;
-    pthread_mutex_unlock(&intlock_t);
+    pthread_mutex_lock(&am100_state.wd16_cpu_state->intlock_t);
+    am100_state.wd16_cpu_state->regs.whichint[0] = 1;
+    am100_state.wd16_cpu_state->regs.intpending = 1;
+    pthread_mutex_unlock(&am100_state.wd16_cpu_state->intlock_t);
 
     usleep(wait_time);
   }
@@ -190,7 +198,7 @@ void background_thread(void) {
 
   set_pri_normal();
 
-  while (line_clock_ticks > 0) {
+  while (am100_state.line_clock_ticks > 0) {
 
     did = 0;
 
@@ -205,7 +213,7 @@ void background_thread(void) {
 
     // die if parent process (ie, shell window) has died...
     if (getppid() == 1)
-      regs.halting = 1;
+      am100_state.wd16_cpu_state->regs.halting = 1;
   }
 
   /* get here when someone sets ticks == 0 */
@@ -221,7 +229,7 @@ int BG_check_terms(void) {
   PANEL_DATA *thePanelData;
   int did3 = 0, i, numUnhide = 0;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_PS3) {
       did3 += PS3_poll((unsigned char *)cptr);
@@ -260,7 +268,7 @@ int BG_check_terms(void) {
 int BG_check_others(void) {
   CARDS *cptr;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do {
     if (cptr->C_Type == C_Type_am320) {
       am320_poll((unsigned char *)cptr);

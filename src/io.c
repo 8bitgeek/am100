@@ -25,6 +25,13 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "am300.h"
+#include "am320.h"
+#include "am600.h"
+#include "ps3.h"
+#include "io.h"
+#include "clock.h"
+#include "front-panel.h"
 
 /*-------------------------------------------------------------------*/
 /* This module does all I/O access and control.  Since the AM100     */
@@ -40,8 +47,8 @@ void initAMports() {
 
   for (i = 0; i < 256; i++) /* turn off all ports */
   {
-    am_ports[i] = &DeadPort;
-    am_portbase[i] = (unsigned char *)i; // DeadPort doesn't need storage,
+    am100_state.am_ports[i] = &DeadPort;
+    am100_state.am_portbase[i] = (unsigned char *)i; // DeadPort doesn't need storage,
     //                                     uses pointer to know own addr.
   }
 }
@@ -57,7 +64,7 @@ void io_stop() {}
 void io_reset() {
   CARDS *cptr;
 
-  cptr = cards;
+  cptr = am100_state.cards;
   do { // reset each card
     if (cptr->C_Type == C_Type_am100) {
       /* no action */
@@ -94,22 +101,22 @@ void io_reset() {
 /* Register a port                                                   */
 /*-------------------------------------------------------------------*/
 void regAMport(int portnum, PortPtr GoodPort, unsigned char *sa) {
-  am_ports[portnum] = GoodPort;
-  am_portbase[portnum] = sa;
+  am100_state.am_ports[portnum] = GoodPort;
+  am100_state.am_portbase[portnum] = sa;
 }
 
 /*-------------------------------------------------------------------*/
 /* Read Byte from I/O port                                           */
 /*-------------------------------------------------------------------*/
 void getAMIObyte(unsigned char *chr, unsigned long PORT) {
-  am_ports[PORT](chr, 0, am_portbase[PORT]);
+  am100_state.am_ports[PORT](chr, 0, am100_state.am_portbase[PORT]);
 }
 
 /*-------------------------------------------------------------------*/
 /* Write Byte to I/O port                                            */
 /*-------------------------------------------------------------------*/
 void putAMIObyte(unsigned char *chr, unsigned long PORT) {
-  am_ports[PORT](chr, 1, am_portbase[PORT]);
+  am100_state.am_ports[PORT](chr, 1, am100_state.am_portbase[PORT]);
 }
 
 /*-------------------------------------------------------------------*/
@@ -117,19 +124,19 @@ void putAMIObyte(unsigned char *chr, unsigned long PORT) {
 /*-------------------------------------------------------------------*/
 void LEDPort(unsigned char *chr, int rwflag, unsigned char *sa) {
   if (rwflag == 0)
-    //   *chr = regs.LED;   // (fails diag3 this way)
+    //   *chr = am100_state.wd16_cpu_state->regs.LED;   // (fails diag3 this way)
     *chr = 0xff; // read on real one probably always got 0xff...
   else {
-    regs.LED = *chr; // write saves value
+    am100_state.wd16_cpu_state->regs.LED = *chr; // write saves value
     FP_led();
 
 #ifdef _TRACE_INST_
-    if (regs.tracing)
-      fprintf(stderr, "\n%02x written to LED", regs.LED);
+    if (am100_state.wd16_cpu_state->regs.tracing)
+      fprintf(stderr, "\n%02x written to LED", am100_state.wd16_cpu_state->regs.LED);
 #endif
 
-    if (regs.LED == 0) { /* assume monitor is booting if we just */
-      regs.BOOTing = 1;  /* wrote a zero into the LED.           */
+    if (am100_state.wd16_cpu_state->regs.LED == 0) { /* assume monitor is booting if we just */
+      am100_state.wd16_cpu_state->regs.BOOTing = 1;  /* wrote a zero into the LED.           */
     }
   }
 }
@@ -140,7 +147,7 @@ void LEDPort(unsigned char *chr, int rwflag, unsigned char *sa) {
 void DeadPort(unsigned char *chr, int rwflag, unsigned char *sa) {
 
 #ifdef _TRACE_INST_
-  if (regs.tracing)
+  if (am100_state.wd16_cpu_state->regs.tracing)
     fprintf(stderr, "\nIO to unassigned port %02x, data %02x, rw %d", (int)sa,
             *chr, rwflag);
 #endif

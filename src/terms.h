@@ -1,4 +1,4 @@
-/* main.c       (c) Copyright Mike Noel, 2001-2008                   */
+/* cpu-fmt9.h    (c) Copyright Mike Sharkey, 2021                    */
 /* ----------------------------------------------------------------- */
 /*                                                                   */
 /* This software is an emulator for the Alpha-Micro AM-100 computer. */
@@ -23,80 +23,30 @@
 /* legally obtained from an authorized source.                       */
 /*                                                                   */
 /* ----------------------------------------------------------------- */
+#ifndef __AM100_TERMS_H__
+#define __AM100_TERMS_H__
 
-#include <wd16.h>
 #include "am100.h"
-#include "config.h"
 
-am100_state_t am100_state;
-
-static void am100_init(void);
-static void usage(void);
-
-void am100_init()
+#ifdef __cplusplus
+extern "C"
 {
-  memset(&am100_state,0,sizeof(am100_state_t));
-  am100_state.wd16_cpu_state = &wd16_cpu_state;
+#endif
 
-  /** @FIXME - initialize wd16 callbacks */
-
-
-}
-
+//*-------------------------------------------------------------------*/
+/* in terms.c                                                        */
 /*-------------------------------------------------------------------*/
-/* This module initializes the am100 emulator.                       */
-/*-------------------------------------------------------------------*/
+int get_panelnumber(void);
+void hide_all_panels(void);
+void show_panel_by_fnum(int fnum);
+char *getns(char *str, int nn, WINDOW *win);
+int getxh(int wait);
+int InChars(void);
+void OutChars(PANEL *panel, char *chr);
 
-int main(int argc, char *argv[]) {
-  char *inifile = "am100.ini";
-  int c, arg_error = 0;
 
-  am100_init();
-
-  /* get command line argument(s) (if any) */
-  while ((c = getopt(argc, argv, "f:PT")) != EOF) {
-    switch (c) {
-    case 'f':
-      inifile = optarg;
-      break;
-    case 'P':
-      am100_state.gPOST++;
-      break;
-    case 'T':
-      am100_state.gTRACE++;
-      break;
-    default:
-      arg_error++;
-    }
-  }
-  if (optind < argc)
-    arg_error++;
-  if (arg_error > 0)
-    usage();
-
-  if (!config_start(inifile)) {
-    // if (panels != NULL) hide_all_panels();
-    fprintf(stderr, "configuration failure!\n\r");
-    sleep(4);
-    endwin();
-    exit(99);
-  }
-
-  am100_state.wd16_cpu_state->regs.waiting = 0;           // start cpu running
-  pthread_join(am100_state.wd16_cpu_state->cpu_t, NULL);   // wait for it to die
-
-  config_stop();
-
-  return (0);
+#ifdef __cplusplus
 }
+#endif
 
-static void usage(void ) 
-{
-  fprintf(stderr, "Syntax:\tam100 {-P -T -f inifile}\n"
-                  " where:\t-f inifile = name of initialization file\n"
-                  " where:\t-T = startup with tracing on\n"
-                  " where:\t-P = detailed POST (power on self test)\n");
-  sleep(10);
-  exit(99);
-}
-
+#endif

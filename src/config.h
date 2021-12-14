@@ -1,4 +1,4 @@
-/* am-ddb.h           (c) Copyright Mike Noel, 2001-2008             */
+/* cpu-fmt9.h    (c) Copyright Mike Sharkey, 2021                    */
 /* ----------------------------------------------------------------- */
 /*                                                                   */
 /* This software is an emulator for the Alpha-Micro AM-100 computer. */
@@ -23,31 +23,26 @@
 /* legally obtained from an authorized source.                       */
 /*                                                                   */
 /* ----------------------------------------------------------------- */
-#ifndef __AM_DDB_H__
-#define __AM_DDB_H__
+#ifndef __AM100_CONFIG_H__
+#define __AM100_CONFIG_H__
 
-//      DDB offsets ( '<---' means used by vdkdrv )
+#include "am100.h"
 
-#define DB$ERR 0  // error code
-#define DB$FLG 1  // flags                <---
-#define DB$BAD 2  // buffer address       <---
-#define DB$RSZ 4  // record size          <---
-#define DB$BFI 6  // buffer index
-#define DB$RNM 8  // record number        <---
-#define DB$QCL 10 // queue chain link
-#define DB$JCB 12 // JCB address
-#define DB$PRI 14 // job priority
-#define DB$DVC 16 // device code
-#define DB$DRI 18 // drive
-#define DB$CLL 19 // call level
-#define DB$FIL 20 // filename
-#define DB$EXT 24 // extension
-#define DB$PPN 26 // PPN
-#define DB$OCD 28 // open code
-#define DB$WRK 30 // driver work area (5 words)
-#define DB$NRC 30 // number of records in file
-#define DB$ADB 32 // active bytes in last record
-#define DB$FRN 34 // number of first record
-#define SIZ$DB 40 // size of DDB
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+int config_start(char *config_file_name);
+void config_stop(void);
+void config_reset(void);
+void config_fileload(unsigned char *filename, uint16_t where, uint16_t *fsize);
+void config_filesave(unsigned char *filename, uint16_t where, uint16_t *fsize);
+void config_memdump(uint16_t where, uint16_t fsize);
+void config_stop(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

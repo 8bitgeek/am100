@@ -1,4 +1,4 @@
-/* main.c       (c) Copyright Mike Noel, 2001-2008                   */
+/* cpu-fmt9.h    (c) Copyright Mike Sharkey, 2021                    */
 /* ----------------------------------------------------------------- */
 /*                                                                   */
 /* This software is an emulator for the Alpha-Micro AM-100 computer. */
@@ -23,80 +23,44 @@
 /* legally obtained from an authorized source.                       */
 /*                                                                   */
 /* ----------------------------------------------------------------- */
+#ifndef __AM100_TRACE_H__
+#define __AM100_TRACE_H__
 
-#include <wd16.h>
 #include "am100.h"
-#include "config.h"
 
-am100_state_t am100_state;
-
-static void am100_init(void);
-static void usage(void);
-
-void am100_init()
+#ifdef __cplusplus
+extern "C"
 {
-  memset(&am100_state,0,sizeof(am100_state_t));
-  am100_state.wd16_cpu_state = &wd16_cpu_state;
-
-  /** @FIXME - initialize wd16 callbacks */
-
-
-}
+#endif
 
 /*-------------------------------------------------------------------*/
-/* This module initializes the am100 emulator.                       */
+/* in trace.c                                                        */
 /*-------------------------------------------------------------------*/
+void trace_pre_regs(void);
+void trace_Interrupt(int i);
+void trace_fmtInvalid(void);
+void trace_fmt1(char *opc, int mask);
+void trace_fmt2(char *opc, int reg);
+void trace_fmt3(char *opc, int arg);
+void trace_fmt4_svca(char *opc, int arg);
+void trace_fmt4_svcb(char *opc, int arg);
+void trace_fmt4_svcc(char *opc, int arg);
+void trace_fmt5(char *opc, int dest);
+void trace_fmt6(char *opc, int count, int reg);
+void trace_fmt7(char *opc, int dmode, int dreg, uint16_t n1word);
+void trace_fmt8(char *opc, int sreg, int dreg);
+void trace_fmt9(char *opc, int sreg, int dmode, int dreg, uint16_t n1word);
+void trace_fmt9_jsr(char *opc, int sreg, int dmode, int dreg, uint16_t n1word);
+void trace_fmt9_lea(char *opc, int sreg, int dmode, int dreg, uint16_t n1word);
+void trace_fmt9_sob(char *opc, int sreg, int dmode, int dreg);
+void trace_fmt10(char *opc, int smode, int sreg, int dmode, int dreg,
+                 uint16_t n1word);
+void trace_fmt11(char *opc, int sind, int sreg, double s, int dind, int dreg,
+                 double d);
 
-int main(int argc, char *argv[]) {
-  char *inifile = "am100.ini";
-  int c, arg_error = 0;
 
-  am100_init();
-
-  /* get command line argument(s) (if any) */
-  while ((c = getopt(argc, argv, "f:PT")) != EOF) {
-    switch (c) {
-    case 'f':
-      inifile = optarg;
-      break;
-    case 'P':
-      am100_state.gPOST++;
-      break;
-    case 'T':
-      am100_state.gTRACE++;
-      break;
-    default:
-      arg_error++;
-    }
-  }
-  if (optind < argc)
-    arg_error++;
-  if (arg_error > 0)
-    usage();
-
-  if (!config_start(inifile)) {
-    // if (panels != NULL) hide_all_panels();
-    fprintf(stderr, "configuration failure!\n\r");
-    sleep(4);
-    endwin();
-    exit(99);
-  }
-
-  am100_state.wd16_cpu_state->regs.waiting = 0;           // start cpu running
-  pthread_join(am100_state.wd16_cpu_state->cpu_t, NULL);   // wait for it to die
-
-  config_stop();
-
-  return (0);
+#ifdef __cplusplus
 }
+#endif
 
-static void usage(void ) 
-{
-  fprintf(stderr, "Syntax:\tam100 {-P -T -f inifile}\n"
-                  " where:\t-f inifile = name of initialization file\n"
-                  " where:\t-T = startup with tracing on\n"
-                  " where:\t-P = detailed POST (power on self test)\n");
-  sleep(10);
-  exit(99);
-}
-
+#endif

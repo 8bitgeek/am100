@@ -25,6 +25,9 @@
 /* ----------------------------------------------------------------- */
 
 #include "am100.h"
+#include "config.h"
+#include "front-panel.h"
+#include "dialog.h"
 
 WINDOW *FPWindow;
 WINDOW *am_subwin, *vam_subwin;
@@ -38,7 +41,7 @@ int FP$power, FP$reset;
 /*-------------------------------------------------------------------*/
 /*                                                                   */
 /* This module draws the 'front panel' of the emulator on the        */
-/* ncurses stdsrc (under all the panels).                            */
+/* ncurses stdsrc (under all the am100_state.panels).                            */
 /*                                                                   */
 /*-------------------------------------------------------------------*/
 
@@ -54,8 +57,8 @@ void FP_init() {
   FPPanel = new_panel(FPWindow);
   set_panel_userptr(FPPanel, &FPPanel_data);
   thePanelData = (PANEL_DATA *)panel_userptr(FPPanel);
-  thePanelData->PANEL_DATA_NEXT = panels;
-  panels = thePanelData;
+  thePanelData->PANEL_DATA_NEXT = am100_state.panels;
+  am100_state.panels = thePanelData;
   thePanelData->thePanel = FPPanel;
   thePanelData->hide = FALSE;
   thePanelData->fnum = 0;
@@ -267,7 +270,7 @@ void FP_key(int c) {
   if ((c == ' ') | (c == 0x0d)) { // PRESS button...
     if (FP$power)
       if (Dialog_ConfirmQuit("Pressing the POWER button means QUIT!"))
-        regs.halting = true;
+        am100_state.wd16_cpu_state->regs.halting = true;
     if (FP$reset)
       if (Dialog_YN("Pressing the RESET button means reboot!",
                     "Are you sure you want to reboot now?")) {
@@ -283,12 +286,12 @@ void FP_key(int c) {
 /*-------------------------------------------------------------------*/
 void FP_led() {
   wmove(led_subwin, 0, 0);
-  if (regs.LED == 0)
+  if (am100_state.wd16_cpu_state->regs.LED == 0)
     wprintw(led_subwin, "  ");
-  else if (regs.LED < 16)
-    wprintw(led_subwin, " %0x1d", regs.LED);
+  else if (am100_state.wd16_cpu_state->regs.LED < 16)
+    wprintw(led_subwin, " %0x1d", am100_state.wd16_cpu_state->regs.LED);
   else
-    wprintw(led_subwin, "%0x2d", regs.LED);
+    wprintw(led_subwin, "%0x2d", am100_state.wd16_cpu_state->regs.LED);
   FP_refresh();
 }
 
