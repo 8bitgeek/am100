@@ -13,12 +13,11 @@ git submodule update
 make
 ```
 
-# Alpha Micro PDF Documentation
+# Alpha Micro PDF Documentation at BitSavers
 
-http://www.obsoletecomputermuseum.org/am100/
+https://bitsavers.computerhistory.org/pdf/alphaMicrosystems/am-100/
 
-
-# Other References
+# Other Sources of Information
 
 http://s100computers.com/Hardware%20Folder/Alpha%20Micro/AM-100/AM-100.htm
 
