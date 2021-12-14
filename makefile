@@ -46,7 +46,7 @@ CFLAGS += 	-Wno-unused-result 			\
 
 LFLAGS	 = -lm -lpthread -lncurses -lpanel -lmenu
 
-OBJS     = 	src/main.o 		\
+OBJS     = 	src/am100.o 		\
 			src/config.o 		\
 	   		src/priority.o 		\
 	   		src/hwassist.o 		\
@@ -78,5 +78,5 @@ $(CPULIB):
 	(cd $(CPUDIR) && make)
 
 clean:
-	rm -f $(EXEFILES) $(EXEFILES).exe src/*.o
+	rm -f $(TARGET) $(OBJS)
 	(cd $(CPUDIR) && make clean)
