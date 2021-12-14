@@ -1,4 +1,4 @@
-/* cpu-fmt9.h    (c) Copyright Mike Sharkey, 2021                    */
+/* io.h          (c) Copyright Mike Sharkey, 2021                    */
 /* ----------------------------------------------------------------- */
 /*                                                                   */
 /* This software is an emulator for the Alpha-Micro AM-100 computer. */
