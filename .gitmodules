@@ -1,0 +1,3 @@
+[submodule "libemuwd16"]
+	path = libemuwd16
+	url = https://github.com/8bitgeek/libemuwd16.git

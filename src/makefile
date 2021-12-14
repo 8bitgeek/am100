@@ -24,11 +24,20 @@
 #/*                                                                   */
 #/* ----------------------------------------------------------------- */
 
-VERSION  = 1.0
+TARGET	= am100
+CPUDIR  = ../../libemuwd16
+CPUSRC  = $(CPUDIR)/src
+CPULIB  = $(CPUDIR)/libwd16.a
+
+VERSION  = 1.1
 
 C        = gcc
 
 # CFLAGS   = -O1 -Wall -DVERSION=$(VERSION) -ggdb
+
+
+INC = -I ./ \
+	  -I $(CPUSRC) 
 
 CFLAGS   = -Os -DVERSION=$(VERSION) -Wno-unused-result 			\
 									-Wno-pointer-to-int-cast 	\
@@ -40,29 +49,29 @@ CFLAGS   = -Os -DVERSION=$(VERSION) -Wno-unused-result 			\
 
 LFLAGS	 = -lm -lpthread -lncurses -lpanel -lmenu
 
-EXEFILES = am100 tapfil filtap tapdir
+EXEFILES = $(TARGET) tapfil filtap tapdir
 
 TARFILES = makefile *.c *.h *.ini
 
-OBJS     = main.o config.o cpu.o \
-	   cpu-fmt1.o cpu-fmt2.o cpu-fmt3.o cpu-fmt4.o \
-	   cpu-fmt5.o cpu-fmt6.o cpu-fmt7.o cpu-fmt8.o \
-	   cpu-fmt9.o cpu-fmt10.o cpu-fmt11.o \
+OBJS     = main.o config.o \
 	   priority.o hwassist.o trace.o\
 	   clock.o io.o am320.o am600.o\
 	   am300.o ps3.o terms.o telnet.o\
 	   front-panel.o dialogs.o \
 	   memory.o rom.o ram.o
 
-HEADERS  = am100.h am-ddb.h
+HEADERS  = $(TARGET).h am-ddb.h
 
 all:	   $(EXEFILES)
 
-am100:  $(OBJS)
-	$(CC) -o am100 $(OBJS) $(LFLAGS)
+$(TARGET):  $(OBJS) $(CPULIB)
+	$(CC) -o $(TARGET) $(OBJS) $(CPULIB) $(LFLAGS)
 
 $(OBJS): %.o: %.c $(HEADERS) makefile
 	$(CC) $(CFLAGS) -o $@ -c $<
+
+$(CPULIB):
+	(cd $(CPUDIR) && make)
 
 tapfil:  tapfil.c tapfil.h makefile
 	$(CC) -o tapfil tapfil.c -ggdb
@@ -74,6 +83,7 @@ filtap:  filtap.c tapfil.h makefile
 
 clean:
 	rm -f $(EXEFILES) $(EXEFILES).exe *.o
+	(cd $(CPUDIR) && make clean)
 
 tar:
-	tar cvzf am100-$(VERSION).tar.gz --exclude \*.o $(TARFILES)
+	tar cvzf $(TARGET)-$(VERSION).tar.gz --exclude \*.o $(TARFILES)

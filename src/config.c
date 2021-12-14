@@ -806,9 +806,6 @@ int config_start(char *config_file_name) {
   gCHRSLP = 300000;
 #endif
 
-  /* Initialize instruction decode arrays */
-  build_decode();
-
   /* init oldPCs table */
   for (oldPCindex = 0; oldPCindex < 256; oldPCindex++)
     oldPCs[oldPCindex] = 0;
