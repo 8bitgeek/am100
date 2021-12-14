@@ -1,8 +1,8 @@
 # am100
 
-Alpha Microsystems AM-100 Emulator
+Alpha Microsystems AM-100 Emulator 
 
-Based on the excellent work of Mike Noel http://www.kicksfortso.com/Am100/
+Derived from the work of Mike Noel http://www.kicksfortso.com/Am100/
 
 # Build
 ```
@@ -12,3 +12,16 @@ git submodule init
 git submodule update
 make
 ```
+
+# Alpha Micro PDF Documentation
+
+http://www.obsoletecomputermuseum.org/am100/
+
+
+# Other References
+
+http://s100computers.com/Hardware%20Folder/Alpha%20Micro/AM-100/AM-100.htm
+
+
+http://www.obsoletecomputermuseum.org/am100/
+
