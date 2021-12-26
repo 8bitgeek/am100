@@ -15,7 +15,7 @@ components of the system such that they can be individually included, or exclude
 
 Release Notes:
 
-- WD16 CPU emulation separated into a separate library project (libbemuwd16)
+- WD16 CPU emulation separated into a separate library project [libbemuwd16](https://github.com/8bitgeek/libemuwd16)
 - The 64K-word CPU Instruction-Type branch table converted to a decision tree to reduce memory footprint.
 - Fixed a floating point format translation bug that prevented floating point numbers from working correctly on ARM 32/64 bit targets.
 - The peripheral card source files have their own headers and are a little bit more indepeendent (there's more to go in that direction)
