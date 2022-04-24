@@ -7,7 +7,7 @@ Derived from the work of Mike Noel http://www.kicksfortso.com/Am100/
 # About
 
 The aim of this project is to refactor the am100 emulator developed by 
-Mike Noel, such that it becomes possible to run the emualtor on a 
+Mike Noel, such that it becomes possible to run the emulator on a 
 microcontroller such as an STM32 or so.
 
 In general, the goal is to separate the functional concerns of the various 
